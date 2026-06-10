@@ -1,0 +1,17 @@
+{
+  "name": "home-dashboard-server",
+  "version": "1.0.0",
+  "description": "Home dashboard backend — MQTT → SQLite → Socket.io",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.18.3",
+    "mqtt": "^5.3.4",
+    "socket.io": "^4.7.4",
+    "sqlite3": "^5.1.7"
+  }
+}
