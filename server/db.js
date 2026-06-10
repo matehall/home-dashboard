@@ -63,81 +63,41 @@ module.exports = {
   getHistory(sensor, from, to, resolution, aggregation = 'avg') {
     const agg = aggregation === 'sum' ? 'SUM(value)' : 'AVG(value)';
 
-    if (resolution === 'hour') {
+    // For raw, return all individual measurements
+    if (resolution === 'raw') {
       return all(`
-        SELECT
-          (ts / 3600000) * 3600000 AS ts,
-          ${agg} AS value,
-          MIN(value) AS min,
-          MAX(value) AS max
-        FROM readings
+        SELECT ts, value, NULL AS aggregated FROM readings
         WHERE sensor = ? AND ts BETWEEN ? AND ?
-        GROUP BY ts / 3600000
         ORDER BY ts
       `, [sensor, from, to]);
     }
 
-    if (resolution === 'day') {
-      return all(`
-        SELECT
-          (ts / 86400000) * 86400000 AS ts,
-          ${agg} AS value,
-          MIN(value) AS min,
-          MAX(value) AS max
-        FROM readings
-        WHERE sensor = ? AND ts BETWEEN ? AND ?
-        GROUP BY ts / 86400000
-        ORDER BY ts
-      `, [sensor, from, to]);
-    }
-
-    if (resolution === 'week') {
-      return all(`
-        SELECT
-          (ts / 604800000) * 604800000 AS ts,
-          ${agg} AS value,
-          MIN(value) AS min,
-          MAX(value) AS max
-        FROM readings
-        WHERE sensor = ? AND ts BETWEEN ? AND ?
-        GROUP BY ts / 604800000
-        ORDER BY ts
-      `, [sensor, from, to]);
-    }
-
-    if (resolution === 'month') {
-      return all(`
-        SELECT
-          (ts / 2592000000) * 2592000000 AS ts,
-          ${agg} AS value,
-          MIN(value) AS min,
-          MAX(value) AS max
-        FROM readings
-        WHERE sensor = ? AND ts BETWEEN ? AND ?
-        GROUP BY ts / 2592000000
-        ORDER BY ts
-      `, [sensor, from, to]);
-    }
-
-    if (resolution === 'year') {
-      return all(`
-        SELECT
-          (ts / 31536000000) * 31536000000 AS ts,
-          ${agg} AS value,
-          MIN(value) AS min,
-          MAX(value) AS max
-        FROM readings
-        WHERE sensor = ? AND ts BETWEEN ? AND ?
-        GROUP BY ts / 31536000000
-        ORDER BY ts
-      `, [sensor, from, to]);
-    }
+    // Build aggregated data + overlay raw data in same response
+    let groupSql = 'ts / 3600000';
+    if (resolution === 'day') groupSql = 'ts / 86400000';
+    if (resolution === 'week') groupSql = 'ts / 604800000';
+    if (resolution === 'month') groupSql = 'ts / 2592000000';
+    if (resolution === 'year') groupSql = 'ts / 31536000000';
 
     return all(`
-      SELECT ts, value FROM readings
-      WHERE sensor = ? AND ts BETWEEN ? AND ?
+      SELECT ts, value, aggregated FROM (
+        -- Raw data
+        SELECT ts, value, 0 AS aggregated FROM readings
+        WHERE sensor = ? AND ts BETWEEN ? AND ?
+        
+        UNION ALL
+        
+        -- Aggregated data
+        SELECT
+          (${groupSql}) * (CASE ${groupSql} WHEN ts / 3600000 THEN 3600000 WHEN ts / 86400000 THEN 86400000 WHEN ts / 604800000 THEN 604800000 WHEN ts / 2592000000 THEN 2592000000 WHEN ts / 31536000000 THEN 31536000000 END) AS ts,
+          ${agg} AS value,
+          1 AS aggregated
+        FROM readings
+        WHERE sensor = ? AND ts BETWEEN ? AND ?
+        GROUP BY ${groupSql}
+      )
       ORDER BY ts
-    `, [sensor, from, to]);
+    `, [sensor, from, to, sensor, from, to]);
   },
 
   pruneOlderThan(days) {

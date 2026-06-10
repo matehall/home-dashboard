@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { io } from "socket.io-client";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 
 const API_BASE = "";
 const SOCKET_URL = typeof window !== "undefined" ? window.location.origin : "http://192.168.1.8:3000";
@@ -52,13 +52,15 @@ function formatTime(ts) {
 
 function CustomTooltip({ active, payload }) {
   if (!active || !payload || !payload.length) return null;
+  const p = payload[0];
+  const label = p.payload.aggregated ? "Aggregerad" : "Momentan";
   return (
     <div className="custom-tooltip">
       <p style={{ color: "#fbbf24", fontWeight: "600", marginBottom: "4px" }}>
-        {payload[0].payload.ts}
+        {p.payload.ts} ({label})
       </p>
       <p style={{ color: "#e5e7eb", margin: "4px 0" }}>
-        Värde: <strong>{payload[0].value.toFixed(1)}</strong>
+        Värde: <strong>{p.value.toFixed(1)}</strong>
       </p>
     </div>
   );
@@ -87,6 +89,7 @@ export default function App() {
   const [historySensor, setHistorySensor] = useState("utetemperatur");
   const [range, setRange] = useState("24h");
   const [history, setHistory] = useState([]);
+  const [chartType, setChartType] = useState("line");
 
   useEffect(() => {
     const socket = io(SOCKET_URL, { transports: ["websocket"] });
@@ -115,10 +118,24 @@ export default function App() {
       .catch(() => setHistory([]));
   }, [historySensor, range]);
 
-  const chartData = useMemo(() => history.map((row) => ({
+  // Separate raw and aggregated data
+  const rawData = useMemo(() => history.filter(row => !row.aggregated).map((row) => ({
     ts: formatTime(row.ts),
-    value: Number(row.value),
+    raw: Number(row.value),
   })), [history]);
+
+  const aggData = useMemo(() => history.filter(row => row.aggregated).map((row) => ({
+    ts: formatTime(row.ts),
+    agg: Number(row.value),
+  })), [history]);
+
+  // Merge for charting
+  const chartData = useMemo(() => {
+    const map = {};
+    rawData.forEach(row => { if (!map[row.ts]) map[row.ts] = { ts: row.ts }; map[row.ts].raw = row.raw; });
+    aggData.forEach(row => { if (!map[row.ts]) map[row.ts] = { ts: row.ts }; map[row.ts].agg = row.agg; });
+    return Object.values(map).sort((a, b) => a.ts.localeCompare(b.ts));
+  }, [rawData, aggData]);
 
   return (
     <div className="app">
@@ -156,24 +173,40 @@ export default function App() {
               </button>
             ))}
           </div>
+          {range !== "1h" && range !== "6h" && (
+            <div className="chart-type-buttons">
+              <button className={chartType === "line" ? "active" : ""} onClick={() => setChartType("line")}>
+                📈 Linje
+              </button>
+              <button className={chartType === "bar" ? "active" : ""} onClick={() => setChartType("bar")}>
+                📊 Stapel
+              </button>
+            </div>
+          )}
         </div>
         <div className="chart">
           <ResponsiveContainer width="100%" height={320}>
-            <LineChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="ts" hide={chartData.length > 40} />
-              <YAxis />
-              <Tooltip content={<CustomTooltip />} />
-              <Legend />
-              <Line 
-                type="monotone" 
-                dataKey="value" 
-                stroke="#4f46e5" 
-                dot={false} 
-                strokeWidth={2}
-                name={historySensor === "regn" ? "Summa (mm)" : "Värde"}
-              />
-            </LineChart>
+            {chartType === "bar" && aggData.length > 0 ? (
+              <BarChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="ts" hide={chartData.length > 40} />
+                <YAxis />
+                <Tooltip content={<CustomTooltip />} />
+                <Legend />
+                {rawData.length > 0 && <Line type="monotone" dataKey="raw" stroke="#94a3b8" dot={false} strokeWidth={1} name="Momentan" />}
+                {aggData.length > 0 && <Bar dataKey="agg" fill="#4f46e5" name={historySensor === "regn" ? "Summa" : "Medel"} />}
+              </BarChart>
+            ) : (
+              <LineChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="ts" hide={chartData.length > 40} />
+                <YAxis />
+                <Tooltip content={<CustomTooltip />} />
+                <Legend />
+                {rawData.length > 0 && <Line type="monotone" dataKey="raw" stroke="#94a3b8" dot={false} strokeWidth={1} name="Momentan" />}
+                {aggData.length > 0 && <Line type="monotone" dataKey="agg" stroke="#4f46e5" dot={false} strokeWidth={2} name={historySensor === "regn" ? "Summa" : "Medel"} />}
+              </LineChart>
+            )}
           </ResponsiveContainer>
         </div>
       </section>
