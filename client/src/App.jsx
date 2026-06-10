@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 
@@ -103,6 +103,9 @@ export default function App() {
   const [range, setRange] = useState("24h");
   const [historyData, setHistoryData] = useState({ raw: [], aggregated: [] });
   const [chartType, setChartType] = useState("line");
+  const [zoomDomain, setZoomDomain] = useState(null); // null = no zoom, [minIdx, maxIdx] = zoomed range
+  const rawChartRef = useRef(null);
+  const aggChartRef = useRef(null);
 
   useEffect(() => {
     const socket = io(SOCKET_URL, { transports: ["websocket"] });
@@ -129,7 +132,30 @@ export default function App() {
       .then((r) => r.json())
       .then(setHistoryData)
       .catch(() => setHistoryData({ raw: [], aggregated: [] }));
+    
+    // Reset zoom when changing range or sensor
+    setZoomDomain(null);
   }, [historySensor, range]);
+
+  // Handle mouse wheel zoom
+  const handleWheel = (e, dataArray) => {
+    if (!dataArray || dataArray.length < 2) return;
+    e.preventDefault();
+
+    const currentDomain = zoomDomain || [0, dataArray.length - 1];
+    const zoomFactor = e.deltaY > 0 ? 0.8 : 1.2; // scroll up = zoom in, scroll down = zoom out
+    const rangeSize = currentDomain[1] - currentDomain[0];
+    const newSize = Math.max(5, Math.min(dataArray.length - 1, rangeSize * zoomFactor));
+    const center = (currentDomain[0] + currentDomain[1]) / 2;
+    const newStart = Math.max(0, Math.floor(center - newSize / 2));
+    const newEnd = Math.min(dataArray.length - 1, newStart + newSize);
+
+    setZoomDomain([newStart, newEnd]);
+  };
+
+  const handleResetZoom = () => {
+    setZoomDomain(null);
+  };
 
   // Format raw data for chart
   const rawChartData = useMemo(() => 
@@ -148,6 +174,20 @@ export default function App() {
       value: Number(row.value),
     })) || []
   , [historyData.aggregated, range]);
+
+  // Apply zoom filter to raw data
+  const displayedRawData = useMemo(() => {
+    if (!zoomDomain) return rawChartData;
+    const [minIdx, maxIdx] = zoomDomain;
+    return rawChartData.slice(Math.floor(minIdx), Math.ceil(maxIdx) + 1);
+  }, [rawChartData, zoomDomain]);
+
+  // Apply zoom filter to aggregated data
+  const displayedAggData = useMemo(() => {
+    if (!zoomDomain) return aggChartData;
+    const [minIdx, maxIdx] = zoomDomain;
+    return aggChartData.slice(Math.floor(minIdx), Math.ceil(maxIdx) + 1);
+  }, [aggChartData, zoomDomain]);
 
   return (
     <div className="app">
@@ -187,19 +227,44 @@ export default function App() {
           </div>
         </div>
 
+        {/* Zoom controls */}
+        {(rawChartData.length > 0 || aggChartData.length > 0) && zoomDomain && (
+          <div style={{ marginBottom: "16px", textAlign: "right" }}>
+            <button 
+              onClick={handleResetZoom}
+              style={{
+                border: "1px solid rgba(148,163,184,.3)",
+                background: "#4f46e5",
+                color: "#e5e7eb",
+                borderRadius: "10px",
+                padding: "8px 16px",
+                cursor: "pointer",
+                fontSize: "0.9rem",
+              }}
+            >
+              🔄 Återställ zoom
+            </button>
+          </div>
+        )}
+
         {/* Raw/Momentan data chart */}
         {rawChartData.length > 0 && (
-          <div className="chart">
+          <div 
+            className="chart"
+            ref={rawChartRef}
+            onWheel={(e) => handleWheel(e, rawChartData)}
+            style={{ cursor: "grab" }}
+          >
             <h3 style={{ margin: "0 0 12px 0", fontSize: "1rem", color: "#cbd5e1" }}>Momentana värden</h3>
             <ResponsiveContainer width="100%" height={280}>
-              <LineChart data={rawChartData}>
+              <LineChart data={displayedRawData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis
                   dataKey="ts"
                   type="number"
                   domain={["dataMin", "dataMax"]}
                   tickFormatter={(value) => formatChartLabel(value, range)}
-                  hide={rawChartData.length > 40}
+                  hide={displayedRawData.length > 40}
                 />
                 <YAxis />
                 <Tooltip content={<CustomTooltip />} labelFormatter={(value) => formatChartLabel(value, range)} />
@@ -212,7 +277,12 @@ export default function App() {
 
         {/* Aggregated data chart */}
         {aggChartData.length > 0 && (
-          <div className="chart">
+          <div 
+            className="chart"
+            ref={aggChartRef}
+            onWheel={(e) => handleWheel(e, aggChartData)}
+            style={{ cursor: "grab" }}
+          >
             <h3 style={{ margin: "0 0 12px 0", fontSize: "1rem", color: "#cbd5e1" }}>Aggregerat per timme</h3>
             <div style={{ display: "flex", gap: "8px", marginBottom: "12px" }}>
               <button 
@@ -248,14 +318,14 @@ export default function App() {
             </div>
             <ResponsiveContainer width="100%" height={280}>
               {chartType === "bar" ? (
-                <BarChart data={aggChartData}>
+                <BarChart data={displayedAggData}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis
                     dataKey="ts"
                     type="number"
                     domain={["dataMin", "dataMax"]}
                     tickFormatter={(value) => formatChartLabel(value, range)}
-                    hide={aggChartData.length > 40}
+                    hide={displayedAggData.length > 40}
                   />
                   <YAxis />
                   <Tooltip content={<CustomTooltip />} labelFormatter={(value) => formatChartLabel(value, range)} />
@@ -263,14 +333,14 @@ export default function App() {
                   <Bar dataKey="value" fill="#4f46e5" name={historySensor === "regn" ? "Summa" : "Medel"} />
                 </BarChart>
               ) : (
-                <LineChart data={aggChartData}>
+                <LineChart data={displayedAggData}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis
                     dataKey="ts"
                     type="number"
                     domain={["dataMin", "dataMax"]}
                     tickFormatter={(value) => formatChartLabel(value, range)}
-                    hide={aggChartData.length > 40}
+                    hide={displayedAggData.length > 40}
                   />
                   <YAxis />
                   <Tooltip content={<CustomTooltip />} labelFormatter={(value) => formatChartLabel(value, range)} />

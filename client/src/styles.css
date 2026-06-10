@@ -24,7 +24,8 @@ button, select { font: inherit; }
 .value { font-size: 2.2rem; font-weight: 700; }
 .unit { color: #94a3b8; }
 .meta { margin-top: 4px; }
-.chart { background: rgba(15,23,42,.8); border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 16px; padding: 16px; margin-top: 12px; }
+.chart { background: rgba(15,23,42,.8); border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 16px; padding: 16px; margin-top: 12px; cursor: grab; }
+.chart:active { cursor: grabbing; }
 .chart-head select, .range-buttons button, .chart-type-buttons button { border: 1px solid rgba(148,163,184,.3); background: #111827; color: #e5e7eb; border-radius: 10px; padding: 8px 12px; cursor: pointer; font-size: 0.9rem; }
 .range-buttons, .chart-type-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
 .range-buttons button.active, .chart-type-buttons button.active { background: #4f46e5; border-color: #4f46e5; }
