@@ -103,7 +103,7 @@ export default function App() {
   const [range, setRange] = useState("24h");
   const [historyData, setHistoryData] = useState({ raw: [], aggregated: [] });
   const [chartType, setChartType] = useState("line");
-  const [zoomDomain, setZoomDomain] = useState(null); // null = no zoom, [minIdx, maxIdx] = zoomed range
+  const [zoomDomain, setZoomDomain] = useState(null);
   const rawChartRef = useRef(null);
   const aggChartRef = useRef(null);
 
@@ -133,7 +133,6 @@ export default function App() {
       .then(setHistoryData)
       .catch(() => setHistoryData({ raw: [], aggregated: [] }));
     
-    // Reset zoom when changing range or sensor
     setZoomDomain(null);
   }, [historySensor, range]);
 
@@ -143,7 +142,7 @@ export default function App() {
     e.preventDefault();
 
     const currentDomain = zoomDomain || [0, dataArray.length - 1];
-    const zoomFactor = e.deltaY > 0 ? 0.8 : 1.2; // scroll up = zoom in, scroll down = zoom out
+    const zoomFactor = e.deltaY > 0 ? 0.8 : 1.2;
     const rangeSize = currentDomain[1] - currentDomain[0];
     const newSize = Math.max(5, Math.min(dataArray.length - 1, rangeSize * zoomFactor));
     const center = (currentDomain[0] + currentDomain[1]) / 2;
@@ -156,6 +155,27 @@ export default function App() {
   const handleResetZoom = () => {
     setZoomDomain(null);
   };
+
+  // Attach wheel listeners with passive: false
+  useEffect(() => {
+    const handleRawWheel = (e) => handleWheel(e, rawChartData);
+    const handleAggWheel = (e) => handleWheel(e, aggChartData);
+
+    const rawEl = rawChartRef.current;
+    const aggEl = aggChartRef.current;
+
+    if (rawEl) {
+      rawEl.addEventListener("wheel", handleRawWheel, { passive: false });
+    }
+    if (aggEl) {
+      aggEl.addEventListener("wheel", handleAggWheel, { passive: false });
+    }
+
+    return () => {
+      if (rawEl) rawEl.removeEventListener("wheel", handleRawWheel);
+      if (aggEl) aggEl.removeEventListener("wheel", handleAggWheel);
+    };
+  }, [zoomDomain, rawChartData, aggChartData]);
 
   // Format raw data for chart
   const rawChartData = useMemo(() => 
@@ -252,7 +272,6 @@ export default function App() {
           <div 
             className="chart"
             ref={rawChartRef}
-            onWheel={(e) => handleWheel(e, rawChartData)}
             style={{ cursor: "grab" }}
           >
             <h3 style={{ margin: "0 0 12px 0", fontSize: "1rem", color: "#cbd5e1" }}>Momentana värden</h3>
@@ -280,7 +299,6 @@ export default function App() {
           <div 
             className="chart"
             ref={aggChartRef}
-            onWheel={(e) => handleWheel(e, aggChartData)}
             style={{ cursor: "grab" }}
           >
             <h3 style={{ margin: "0 0 12px 0", fontSize: "1rem", color: "#cbd5e1" }}>Aggregerat per timme</h3>
