@@ -106,6 +106,8 @@ export default function App() {
   const [zoomDomain, setZoomDomain] = useState(null);
   const rawChartRef = useRef(null);
   const aggChartRef = useRef(null);
+  const [isPanning, setIsPanning] = useState(false);
+  const [panStart, setPanStart] = useState(0);
 
   useEffect(() => {
     const socket = io(SOCKET_URL, { transports: ["websocket"] });
@@ -156,26 +158,84 @@ export default function App() {
     setZoomDomain(null);
   };
 
-  // Attach wheel listeners with passive: false
+  // Handle pan (drag to scroll through time)
+  const handlePan = (e, dataArray) => {
+    if (!dataArray || dataArray.length < 2) return;
+    if (!isPanning) return;
+
+    const currentDomain = zoomDomain || [0, dataArray.length - 1];
+    const rangeSize = currentDomain[1] - currentDomain[0];
+    
+    // Calculate pixels per index based on approximate container width
+    const containerWidth = 800; // approximate, will vary
+    const pixelsPerIndex = containerWidth / rangeSize;
+    
+    // Calculate delta in indices from mouse movement
+    const deltaPixels = e.clientX - panStart;
+    const deltaIndices = -(deltaPixels / pixelsPerIndex); // negative: drag right = go backward in time
+    
+    // Update pan position
+    const newStart = Math.max(0, Math.min(dataArray.length - rangeSize - 1, currentDomain[0] + deltaIndices));
+    const newEnd = Math.min(dataArray.length - 1, newStart + rangeSize);
+    
+    setZoomDomain([newStart, newEnd]);
+    setPanStart(e.clientX); // Update pan start for next delta calculation
+  };
+
+  // Setup pan and wheel event listeners
   useEffect(() => {
     const handleRawWheel = (e) => handleWheel(e, rawChartData);
     const handleAggWheel = (e) => handleWheel(e, aggChartData);
+    const handleRawPan = (e) => handlePan(e, rawChartData);
+    const handleAggPan = (e) => handlePan(e, aggChartData);
+
+    const handleRawMouseDown = (e) => {
+      setIsPanning(true);
+      setPanStart(e.clientX);
+    };
+    const handleRawMouseUp = () => setIsPanning(false);
+
+    const handleAggMouseDown = (e) => {
+      setIsPanning(true);
+      setPanStart(e.clientX);
+    };
+    const handleAggMouseUp = () => setIsPanning(false);
 
     const rawEl = rawChartRef.current;
     const aggEl = aggChartRef.current;
 
     if (rawEl) {
       rawEl.addEventListener("wheel", handleRawWheel, { passive: false });
+      rawEl.addEventListener("mousedown", handleRawMouseDown);
+      rawEl.addEventListener("mousemove", handleRawPan);
+      rawEl.addEventListener("mouseup", handleRawMouseUp);
+      rawEl.addEventListener("mouseleave", handleRawMouseUp);
     }
     if (aggEl) {
       aggEl.addEventListener("wheel", handleAggWheel, { passive: false });
+      aggEl.addEventListener("mousedown", handleAggMouseDown);
+      aggEl.addEventListener("mousemove", handleAggPan);
+      aggEl.addEventListener("mouseup", handleAggMouseUp);
+      aggEl.addEventListener("mouseleave", handleAggMouseUp);
     }
 
     return () => {
-      if (rawEl) rawEl.removeEventListener("wheel", handleRawWheel);
-      if (aggEl) aggEl.removeEventListener("wheel", handleAggWheel);
+      if (rawEl) {
+        rawEl.removeEventListener("wheel", handleRawWheel);
+        rawEl.removeEventListener("mousedown", handleRawMouseDown);
+        rawEl.removeEventListener("mousemove", handleRawPan);
+        rawEl.removeEventListener("mouseup", handleRawMouseUp);
+        rawEl.removeEventListener("mouseleave", handleRawMouseUp);
+      }
+      if (aggEl) {
+        aggEl.removeEventListener("wheel", handleAggWheel);
+        aggEl.removeEventListener("mousedown", handleAggMouseDown);
+        aggEl.removeEventListener("mousemove", handleAggPan);
+        aggEl.removeEventListener("mouseup", handleAggMouseUp);
+        aggEl.removeEventListener("mouseleave", handleAggMouseUp);
+      }
     };
-  }, [zoomDomain, rawChartData, aggChartData]);
+  }, [zoomDomain, rawChartData, aggChartData, isPanning, panStart]);
 
   // Format raw data for chart
   const rawChartData = useMemo(() => 
