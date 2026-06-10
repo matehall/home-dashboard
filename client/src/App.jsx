@@ -117,28 +117,21 @@ export default function App() {
       .catch(() => setHistoryData({ raw: [], aggregated: [] }));
   }, [historySensor, range]);
 
-  // Merge raw and aggregated into single dataset for charting
-  const chartData = useMemo(() => {
-    const map = {};
-    
-    // Add raw data
-    historyData.raw?.forEach(row => {
-      const key = row.ts.toString();
-      if (!map[key]) map[key] = { ts: formatTime(row.ts), tsNum: row.ts };
-      map[key].raw = Number(row.value);
-    });
-    
-    // Add aggregated data
-    historyData.aggregated?.forEach(row => {
-      const key = row.ts.toString();
-      if (!map[key]) map[key] = { ts: formatTime(row.ts), tsNum: row.ts };
-      map[key].agg = Number(row.value);
-    });
-    
-    return Object.values(map).sort((a, b) => a.tsNum - b.tsNum);
-  }, [historyData]);
+  // Format raw data for chart
+  const rawChartData = useMemo(() => 
+    historyData.raw?.map(row => ({
+      ts: formatTime(row.ts),
+      value: Number(row.value),
+    })) || []
+  , [historyData.raw]);
 
-  const hasAgg = historyData.aggregated?.length > 0;
+  // Format aggregated data for chart
+  const aggChartData = useMemo(() => 
+    historyData.aggregated?.map(row => ({
+      ts: formatTime(row.ts),
+      value: Number(row.value),
+    })) || []
+  , [historyData.aggregated]);
 
   return (
     <div className="app">
@@ -176,42 +169,84 @@ export default function App() {
               </button>
             ))}
           </div>
-          {hasAgg && (
-            <div className="chart-type-buttons">
-              <button className={chartType === "line" ? "active" : ""} onClick={() => setChartType("line")}>
+        </div>
+
+        {/* Raw/Momentan data chart */}
+        {rawChartData.length > 0 && (
+          <div className="chart">
+            <h3 style={{ margin: "0 0 12px 0", fontSize: "1rem", color: "#cbd5e1" }}>Momentana värden</h3>
+            <ResponsiveContainer width="100%" height={280}>
+              <LineChart data={rawChartData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="ts" hide={rawChartData.length > 40} />
+                <YAxis />
+                <Tooltip content={<CustomTooltip />} />
+                <Legend />
+                <Line type="monotone" dataKey="value" stroke="#94a3b8" dot={false} strokeWidth={1} name="Värde" />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+
+        {/* Aggregated data chart */}
+        {aggChartData.length > 0 && (
+          <div className="chart">
+            <h3 style={{ margin: "0 0 12px 0", fontSize: "1rem", color: "#cbd5e1" }}>Aggregerat per timme</h3>
+            <div style={{ display: "flex", gap: "8px", marginBottom: "12px" }}>
+              <button 
+                className={chartType === "line" ? "active" : ""} 
+                onClick={() => setChartType("line")}
+                style={{
+                  border: "1px solid rgba(148,163,184,.3)",
+                  background: chartType === "line" ? "#4f46e5" : "#111827",
+                  color: "#e5e7eb",
+                  borderRadius: "10px",
+                  padding: "8px 12px",
+                  cursor: "pointer",
+                  fontSize: "0.9rem"
+                }}
+              >
                 📈 Linje
               </button>
-              <button className={chartType === "bar" ? "active" : ""} onClick={() => setChartType("bar")}>
+              <button 
+                className={chartType === "bar" ? "active" : ""} 
+                onClick={() => setChartType("bar")}
+                style={{
+                  border: "1px solid rgba(148,163,184,.3)",
+                  background: chartType === "bar" ? "#4f46e5" : "#111827",
+                  color: "#e5e7eb",
+                  borderRadius: "10px",
+                  padding: "8px 12px",
+                  cursor: "pointer",
+                  fontSize: "0.9rem"
+                }}
+              >
                 📊 Stapel
               </button>
             </div>
-          )}
-        </div>
-        <div className="chart">
-          <ResponsiveContainer width="100%" height={320}>
-            {chartType === "bar" && hasAgg ? (
-              <BarChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="ts" hide={chartData.length > 40} />
-                <YAxis />
-                <Tooltip content={<CustomTooltip />} />
-                <Legend />
-                {historyData.raw?.length > 0 && <Line type="monotone" dataKey="raw" stroke="#94a3b8" dot={false} strokeWidth={1} name="Momentan" />}
-                {hasAgg && <Bar dataKey="agg" fill="#4f46e5" name={historySensor === "regn" ? "Summa" : "Medel"} />}
-              </BarChart>
-            ) : (
-              <LineChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="ts" hide={chartData.length > 40} />
-                <YAxis />
-                <Tooltip content={<CustomTooltip />} />
-                <Legend />
-                {historyData.raw?.length > 0 && <Line type="monotone" dataKey="raw" stroke="#94a3b8" dot={false} strokeWidth={1} name="Momentan" />}
-                {hasAgg && <Line type="monotone" dataKey="agg" stroke="#4f46e5" dot={false} strokeWidth={2} name={historySensor === "regn" ? "Summa" : "Medel"} />}
-              </LineChart>
-            )}
-          </ResponsiveContainer>
-        </div>
+            <ResponsiveContainer width="100%" height={280}>
+              {chartType === "bar" ? (
+                <BarChart data={aggChartData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="ts" hide={aggChartData.length > 40} />
+                  <YAxis />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Legend />
+                  <Bar dataKey="value" fill="#4f46e5" name={historySensor === "regn" ? "Summa" : "Medel"} />
+                </BarChart>
+              ) : (
+                <LineChart data={aggChartData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="ts" hide={aggChartData.length > 40} />
+                  <YAxis />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Legend />
+                  <Line type="monotone" dataKey="value" stroke="#4f46e5" dot={false} strokeWidth={2} name={historySensor === "regn" ? "Summa" : "Medel"} />
+                </LineChart>
+              )}
+            </ResponsiveContainer>
+          </div>
+        )}
       </section>
     </div>
   );
