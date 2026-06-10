@@ -27,6 +27,16 @@ const SENSOR_LABELS = {
   returledning: "Returledning",
 };
 
+const TIME_RANGES = {
+  "1h": { label: "1h", ms: 3600000, resolution: "raw" },
+  "6h": { label: "6h", ms: 21600000, resolution: "raw" },
+  "24h": { label: "24h", ms: 86400000, resolution: "hour" },
+  "7d": { label: "7d", ms: 604800000, resolution: "day" },
+  "30d": { label: "30d", ms: 2592000000, resolution: "day" },
+  "1y": { label: "1 år", ms: 31536000000, resolution: "month" },
+  "all": { label: "Alla", ms: null, resolution: "month" },
+};
+
 function formatAge(ts) {
   const sec = Math.max(0, Math.floor((Date.now() - ts) / 1000));
   if (sec < 60) return `${sec}s sedan`;
@@ -89,18 +99,17 @@ export default function App() {
     });
     socket.on("update", (row) => {
       setLatest((prev) => ({ ...prev, [row.sensor]: row }));
-      if (row.sensor === historySensor) {
-        setHistory((prev) => [...prev.slice(-499), row]);
-      }
     });
     return () => socket.close();
-  }, [historySensor]);
+  }, []);
 
   useEffect(() => {
     const now = Date.now();
-    const map = { "1h": 3600000, "6h": 21600000, "24h": 86400000, "7d": 604800000, "30d": 2592000000 };
-    const from = now - map[range];
-    fetch(`${API_BASE}/api/history?sensor=${encodeURIComponent(historySensor)}&from=${from}&to=${now}&resolution=raw`)
+    const timeRange = TIME_RANGES[range];
+    const from = timeRange.ms ? now - timeRange.ms : 0;
+    const useSum = historySensor === "regn" ? "sum" : "avg";
+    
+    fetch(`${API_BASE}/api/history?sensor=${encodeURIComponent(historySensor)}&from=${from}&to=${now}&resolution=${timeRange.resolution}&aggregation=${useSum}`)
       .then((r) => r.json())
       .then(setHistory)
       .catch(() => setHistory([]));
@@ -141,8 +150,10 @@ export default function App() {
             ))}
           </select>
           <div className="range-buttons">
-            {["1h", "6h", "24h", "7d", "30d"].map((r) => (
-              <button key={r} className={range === r ? "active" : ""} onClick={() => setRange(r)}>{r}</button>
+            {Object.entries(TIME_RANGES).map(([key, val]) => (
+              <button key={key} className={range === key ? "active" : ""} onClick={() => setRange(key)}>
+                {val.label}
+              </button>
             ))}
           </div>
         </div>
@@ -154,7 +165,14 @@ export default function App() {
               <YAxis />
               <Tooltip content={<CustomTooltip />} />
               <Legend />
-              <Line type="monotone" dataKey="value" stroke="#4f46e5" dot={false} strokeWidth={2} />
+              <Line 
+                type="monotone" 
+                dataKey="value" 
+                stroke="#4f46e5" 
+                dot={false} 
+                strokeWidth={2}
+                name={historySensor === "regn" ? "Summa (mm)" : "Värde"}
+              />
             </LineChart>
           </ResponsiveContainer>
         </div>

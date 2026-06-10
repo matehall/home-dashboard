@@ -60,14 +60,16 @@ module.exports = {
     return all('SELECT DISTINCT sensor, unit FROM readings ORDER BY sensor');
   },
 
-  getHistory(sensor, from, to, resolution) {
+  getHistory(sensor, from, to, resolution, aggregation = 'avg') {
+    const agg = aggregation === 'sum' ? 'SUM(value)' : 'AVG(value)';
+
     if (resolution === 'hour') {
       return all(`
         SELECT
           (ts / 3600000) * 3600000 AS ts,
-          AVG(value)  AS value,
-          MIN(value)  AS min,
-          MAX(value)  AS max
+          ${agg} AS value,
+          MIN(value) AS min,
+          MAX(value) AS max
         FROM readings
         WHERE sensor = ? AND ts BETWEEN ? AND ?
         GROUP BY ts / 3600000
@@ -79,12 +81,54 @@ module.exports = {
       return all(`
         SELECT
           (ts / 86400000) * 86400000 AS ts,
-          AVG(value)  AS value,
-          MIN(value)  AS min,
-          MAX(value)  AS max
+          ${agg} AS value,
+          MIN(value) AS min,
+          MAX(value) AS max
         FROM readings
         WHERE sensor = ? AND ts BETWEEN ? AND ?
         GROUP BY ts / 86400000
+        ORDER BY ts
+      `, [sensor, from, to]);
+    }
+
+    if (resolution === 'week') {
+      return all(`
+        SELECT
+          (ts / 604800000) * 604800000 AS ts,
+          ${agg} AS value,
+          MIN(value) AS min,
+          MAX(value) AS max
+        FROM readings
+        WHERE sensor = ? AND ts BETWEEN ? AND ?
+        GROUP BY ts / 604800000
+        ORDER BY ts
+      `, [sensor, from, to]);
+    }
+
+    if (resolution === 'month') {
+      return all(`
+        SELECT
+          (ts / 2592000000) * 2592000000 AS ts,
+          ${agg} AS value,
+          MIN(value) AS min,
+          MAX(value) AS max
+        FROM readings
+        WHERE sensor = ? AND ts BETWEEN ? AND ?
+        GROUP BY ts / 2592000000
+        ORDER BY ts
+      `, [sensor, from, to]);
+    }
+
+    if (resolution === 'year') {
+      return all(`
+        SELECT
+          (ts / 31536000000) * 31536000000 AS ts,
+          ${agg} AS value,
+          MIN(value) AS min,
+          MAX(value) AS max
+        FROM readings
+        WHERE sensor = ? AND ts BETWEEN ? AND ?
+        GROUP BY ts / 31536000000
         ORDER BY ts
       `, [sensor, from, to]);
     }

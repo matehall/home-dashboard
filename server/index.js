@@ -29,12 +29,12 @@ app.get('/api/latest', async (_req, res, next) => {
 
 app.get('/api/history', async (req, res, next) => {
   try {
-    const { sensor, from, to, resolution = 'raw' } = req.query;
+    const { sensor, from, to, resolution = 'raw', aggregation = 'avg' } = req.query;
     if (!sensor) return res.status(400).json({ error: 'sensor is required' });
 
     const fromTs = from ? Number(from) : Date.now() - 24 * 60 * 60 * 1000;
     const toTs = to ? Number(to) : Date.now();
-    res.json(await db.getHistory(sensor, fromTs, toTs, resolution));
+    res.json(await db.getHistory(sensor, fromTs, toTs, resolution, aggregation));
   } catch (err) { next(err); }
 });
 
