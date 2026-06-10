@@ -12,7 +12,7 @@ const SENSOR_GROUPS = [
   },
   {
     title: "Panna / Värme",
-    sensors: ["panntemp", "rok_temp", "sensor2", "sensor3"],
+    sensors: ["framledning", "rok_temp", "panntemp", "returledning"],
   },
 ];
 
@@ -21,10 +21,10 @@ const SENSOR_LABELS = {
   vind_avg: "AVG Vind",
   vind_gust: "GUST Vind",
   regn: "Regn",
-  panntemp: "Panntemp",
+  framledning: "Framledning",
   rok_temp: "Rök temp",
-  sensor2: "Sensor 2",
-  sensor3: "Sensor 3",
+  panntemp: "Panntemperatur",
+  returledning: "Returledning",
 };
 
 function formatAge(ts) {

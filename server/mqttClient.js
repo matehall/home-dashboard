@@ -6,10 +6,10 @@ const SENSOR_MAP = [
   { topic: 'weatherstation/wind', field: 'speed_avg_adjusted', sensor: 'vind_avg',      unit: 'm/s' },
   { topic: 'weatherstation/wind', field: 'speed_gust_adjusted', sensor: 'vind_gust',     unit: 'm/s' },
   { topic: 'weatherstation/rain', field: 'rain',               sensor: 'regn',          unit: 'mm'  },
-  { topic: 'panna/temp',          field: 'sensor1',            sensor: 'panntemp',      unit: '°C'  },
+  { topic: 'panna/temp',          field: 'sensor1',            sensor: 'framledning',   unit: '°C'  },
   { topic: 'panna/temp',          field: 'smoke',              sensor: 'rok_temp',      unit: '°C'  },
-  { topic: 'panna/temp',          field: 'sensor2',            sensor: 'sensor2',       unit: '°C'  },
-  { topic: 'panna/temp',          field: 'sensor3',            sensor: 'sensor3',       unit: '°C'  },
+  { topic: 'panna/temp',          field: 'sensor2',            sensor: 'panntemp',      unit: '°C'  },
+  { topic: 'panna/temp',          field: 'sensor3',            sensor: 'returledning',  unit: '°C'  },
 ];
 
 const TOPIC_SENSORS = SENSOR_MAP.reduce((acc, def) => {
