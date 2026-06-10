@@ -63,41 +63,77 @@ module.exports = {
   getHistory(sensor, from, to, resolution, aggregation = 'avg') {
     const agg = aggregation === 'sum' ? 'SUM(value)' : 'AVG(value)';
 
-    // For raw, return all individual measurements
-    if (resolution === 'raw') {
-      return all(`
-        SELECT ts, value, NULL AS aggregated FROM readings
-        WHERE sensor = ? AND ts BETWEEN ? AND ?
-        ORDER BY ts
-      `, [sensor, from, to]);
-    }
+    // Get raw data (all individual readings)
+    const rawPromise = all(`
+      SELECT ts, value FROM readings
+      WHERE sensor = ? AND ts BETWEEN ? AND ?
+      ORDER BY ts
+    `, [sensor, from, to]);
 
-    // Build aggregated data + overlay raw data in same response
-    let groupSql = 'ts / 3600000';
-    if (resolution === 'day') groupSql = 'ts / 86400000';
-    if (resolution === 'week') groupSql = 'ts / 604800000';
-    if (resolution === 'month') groupSql = 'ts / 2592000000';
-    if (resolution === 'year') groupSql = 'ts / 31536000000';
+    // Get aggregated data
+    let aggSql = `
+      SELECT
+        (ts / 3600000) * 3600000 AS ts,
+        ${agg} AS value
+      FROM readings
+      WHERE sensor = ? AND ts BETWEEN ? AND ?
+      GROUP BY ts / 3600000
+      ORDER BY ts
+    `;
 
-    return all(`
-      SELECT ts, value, aggregated FROM (
-        -- Raw data
-        SELECT ts, value, 0 AS aggregated FROM readings
-        WHERE sensor = ? AND ts BETWEEN ? AND ?
-        
-        UNION ALL
-        
-        -- Aggregated data
+    if (resolution === 'day') {
+      aggSql = `
         SELECT
-          (${groupSql}) * (CASE ${groupSql} WHEN ts / 3600000 THEN 3600000 WHEN ts / 86400000 THEN 86400000 WHEN ts / 604800000 THEN 604800000 WHEN ts / 2592000000 THEN 2592000000 WHEN ts / 31536000000 THEN 31536000000 END) AS ts,
-          ${agg} AS value,
-          1 AS aggregated
+          (ts / 86400000) * 86400000 AS ts,
+          ${agg} AS value
         FROM readings
         WHERE sensor = ? AND ts BETWEEN ? AND ?
-        GROUP BY ${groupSql}
-      )
-      ORDER BY ts
-    `, [sensor, from, to, sensor, from, to]);
+        GROUP BY ts / 86400000
+        ORDER BY ts
+      `;
+    } else if (resolution === 'week') {
+      aggSql = `
+        SELECT
+          (ts / 604800000) * 604800000 AS ts,
+          ${agg} AS value
+        FROM readings
+        WHERE sensor = ? AND ts BETWEEN ? AND ?
+        GROUP BY ts / 604800000
+        ORDER BY ts
+      `;
+    } else if (resolution === 'month') {
+      aggSql = `
+        SELECT
+          (ts / 2592000000) * 2592000000 AS ts,
+          ${agg} AS value
+        FROM readings
+        WHERE sensor = ? AND ts BETWEEN ? AND ?
+        GROUP BY ts / 2592000000
+        ORDER BY ts
+      `;
+    } else if (resolution === 'year') {
+      aggSql = `
+        SELECT
+          (ts / 31536000000) * 31536000000 AS ts,
+          ${agg} AS value
+        FROM readings
+        WHERE sensor = ? AND ts BETWEEN ? AND ?
+        GROUP BY ts / 31536000000
+        ORDER BY ts
+      `;
+    }
+
+    // If raw resolution, skip aggregation
+    if (resolution === 'raw') {
+      return rawPromise.then(raw => ({ raw, aggregated: [] }));
+    }
+
+    const aggPromise = all(aggSql, [sensor, from, to]);
+
+    return Promise.all([rawPromise, aggPromise]).then(([raw, aggregated]) => ({
+      raw,
+      aggregated
+    }));
   },
 
   pruneOlderThan(days) {
