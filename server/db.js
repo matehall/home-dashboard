@@ -41,8 +41,8 @@ function all(sql, params = []) {
 }
 
 module.exports = {
-  insertReading(sensor, topic, value, unit) {
-    return run('INSERT INTO readings (sensor, topic, value, unit, ts) VALUES (?, ?, ?, ?, ?)', [sensor, topic, value, unit, Date.now()]);
+  insertReading(sensor, topic, value, unit, ts = Date.now()) {
+    return run('INSERT INTO readings (sensor, topic, value, unit, ts) VALUES (?, ?, ?, ?, ?)', [sensor, topic, value, unit, ts]);
   },
 
   getLatest() {

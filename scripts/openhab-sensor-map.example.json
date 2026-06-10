@@ -1,0 +1,10 @@
+[
+  { "source": "TEMPERATURE_ITEM_NAME", "sensor": "utetemperatur", "unit": "°C" },
+  { "source": "WIND_AVG_ITEM_NAME", "sensor": "vind_avg", "unit": "m/s" },
+  { "source": "WIND_GUST_ITEM_NAME", "sensor": "vind_gust", "unit": "m/s" },
+  { "source": "RAIN_ITEM_NAME", "sensor": "regn", "unit": "mm" },
+  { "source": "FRAMLEDNING_ITEM_NAME", "sensor": "framledning", "unit": "°C" },
+  { "source": "ROK_TEMP_ITEM_NAME", "sensor": "rok_temp", "unit": "°C" },
+  { "source": "PANTEMP_ITEM_NAME", "sensor": "panntemp", "unit": "°C" },
+  { "source": "RETURLEDNING_ITEM_NAME", "sensor": "returledning", "unit": "°C" }
+]
