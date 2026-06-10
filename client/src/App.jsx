@@ -50,13 +50,27 @@ function formatTime(ts) {
   return new Date(ts).toLocaleTimeString("sv-SE", { hour: "2-digit", minute: "2-digit" });
 }
 
+function formatChartLabel(ts, range) {
+  const date = new Date(ts);
+  if (range === "1h" || range === "6h" || range === "24h") {
+    return date.toLocaleTimeString("sv-SE", { hour: "2-digit", minute: "2-digit" });
+  }
+  if (range === "7d" || range === "30d") {
+    return date.toLocaleDateString("sv-SE", { day: "2-digit", month: "2-digit" });
+  }
+  if (range === "1y") {
+    return date.toLocaleDateString("sv-SE", { month: "short", year: "2-digit" });
+  }
+  return date.toLocaleDateString("sv-SE", { year: "numeric", month: "short", day: "2-digit" });
+}
+
 function CustomTooltip({ active, payload }) {
   if (!active || !payload || !payload.length) return null;
   const p = payload[0];
   return (
     <div className="custom-tooltip">
       <p style={{ color: "#fbbf24", fontWeight: "600", marginBottom: "4px" }}>
-        {p.payload.ts}
+        {p.payload.label ?? p.payload.ts}
       </p>
       <p style={{ color: "#e5e7eb", margin: "4px 0" }}>
         <strong>{p.name}:</strong> {p.value.toFixed(1)}
@@ -120,18 +134,20 @@ export default function App() {
   // Format raw data for chart
   const rawChartData = useMemo(() => 
     historyData.raw?.map(row => ({
-      ts: formatTime(row.ts),
+      ts: row.ts,
+      label: formatChartLabel(row.ts, range),
       value: Number(row.value),
     })) || []
-  , [historyData.raw]);
+  , [historyData.raw, range]);
 
   // Format aggregated data for chart
   const aggChartData = useMemo(() => 
     historyData.aggregated?.map(row => ({
-      ts: formatTime(row.ts),
+      ts: row.ts,
+      label: formatChartLabel(row.ts, range),
       value: Number(row.value),
     })) || []
-  , [historyData.aggregated]);
+  , [historyData.aggregated, range]);
 
   return (
     <div className="app">
@@ -178,9 +194,15 @@ export default function App() {
             <ResponsiveContainer width="100%" height={280}>
               <LineChart data={rawChartData}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="ts" hide={rawChartData.length > 40} />
+                <XAxis
+                  dataKey="ts"
+                  type="number"
+                  domain={["dataMin", "dataMax"]}
+                  tickFormatter={(value) => formatChartLabel(value, range)}
+                  hide={rawChartData.length > 40}
+                />
                 <YAxis />
-                <Tooltip content={<CustomTooltip />} />
+                <Tooltip content={<CustomTooltip />} labelFormatter={(value) => formatChartLabel(value, range)} />
                 <Legend />
                 <Line type="monotone" dataKey="value" stroke="#94a3b8" dot={false} strokeWidth={1} name="Värde" />
               </LineChart>
@@ -228,18 +250,30 @@ export default function App() {
               {chartType === "bar" ? (
                 <BarChart data={aggChartData}>
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="ts" hide={aggChartData.length > 40} />
+                  <XAxis
+                    dataKey="ts"
+                    type="number"
+                    domain={["dataMin", "dataMax"]}
+                    tickFormatter={(value) => formatChartLabel(value, range)}
+                    hide={aggChartData.length > 40}
+                  />
                   <YAxis />
-                  <Tooltip content={<CustomTooltip />} />
+                  <Tooltip content={<CustomTooltip />} labelFormatter={(value) => formatChartLabel(value, range)} />
                   <Legend />
                   <Bar dataKey="value" fill="#4f46e5" name={historySensor === "regn" ? "Summa" : "Medel"} />
                 </BarChart>
               ) : (
                 <LineChart data={aggChartData}>
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="ts" hide={aggChartData.length > 40} />
+                  <XAxis
+                    dataKey="ts"
+                    type="number"
+                    domain={["dataMin", "dataMax"]}
+                    tickFormatter={(value) => formatChartLabel(value, range)}
+                    hide={aggChartData.length > 40}
+                  />
                   <YAxis />
-                  <Tooltip content={<CustomTooltip />} />
+                  <Tooltip content={<CustomTooltip />} labelFormatter={(value) => formatChartLabel(value, range)} />
                   <Legend />
                   <Line type="monotone" dataKey="value" stroke="#4f46e5" dot={false} strokeWidth={2} name={historySensor === "regn" ? "Summa" : "Medel"} />
                 </LineChart>
