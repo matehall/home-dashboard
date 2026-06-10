@@ -40,6 +40,20 @@ function formatTime(ts) {
   return new Date(ts).toLocaleTimeString("sv-SE", { hour: "2-digit", minute: "2-digit" });
 }
 
+function CustomTooltip({ active, payload }) {
+  if (!active || !payload || !payload.length) return null;
+  return (
+    <div className="custom-tooltip">
+      <p style={{ color: "#fbbf24", fontWeight: "600", marginBottom: "4px" }}>
+        {payload[0].payload.ts}
+      </p>
+      <p style={{ color: "#e5e7eb", margin: "4px 0" }}>
+        Värde: <strong>{payload[0].value.toFixed(1)}</strong>
+      </p>
+    </div>
+  );
+}
+
 function SensorCard({ item }) {
   if (!item) return null;
   return (
@@ -138,7 +152,7 @@ export default function App() {
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="ts" hide={chartData.length > 40} />
               <YAxis />
-              <Tooltip />
+              <Tooltip content={<CustomTooltip />} />
               <Legend />
               <Line type="monotone" dataKey="value" stroke="#4f46e5" dot={false} strokeWidth={2} />
             </LineChart>
