@@ -319,18 +319,20 @@ export default function App() {
         </div>
 
         {/* Zoom controls */}
-        {(rawChartData.length > 0 || aggChartData.length > 0) && (zoomDomain || timeOffsetMs > 0) && (
-          <div style={{ marginBottom: "16px", textAlign: "right" }}>
-            <button 
+        {(rawChartData.length > 0 || aggChartData.length > 0) && (
+          <div style={{ marginBottom: "16px", textAlign: "right", minHeight: "40px" }}>
+            <button
               onClick={handleResetZoom}
+              disabled={!zoomDomain && timeOffsetMs <= 0}
               style={{
                 border: "1px solid rgba(148,163,184,.3)",
                 background: "#4f46e5",
                 color: "#e5e7eb",
                 borderRadius: "10px",
                 padding: "8px 16px",
-                cursor: "pointer",
+                cursor: zoomDomain || timeOffsetMs > 0 ? "pointer" : "default",
                 fontSize: "0.9rem",
+                visibility: zoomDomain || timeOffsetMs > 0 ? "visible" : "hidden",
               }}
             >
               🔄 Återställ zoom
