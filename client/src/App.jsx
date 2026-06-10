@@ -167,54 +167,54 @@ export default function App() {
     const rangeSize = currentDomain[1] - currentDomain[0];
     
     // Calculate pixels per index based on approximate container width
-    const containerWidth = 800; // approximate, will vary
+    const containerWidth = 800;
     const pixelsPerIndex = containerWidth / rangeSize;
     
     // Calculate delta in indices from mouse movement
     const deltaPixels = e.clientX - panStart;
-    const deltaIndices = -(deltaPixels / pixelsPerIndex); // negative: drag right = go backward in time
+    const deltaIndices = -(deltaPixels / pixelsPerIndex);
     
     // Update pan position
     const newStart = Math.max(0, Math.min(dataArray.length - rangeSize - 1, currentDomain[0] + deltaIndices));
     const newEnd = Math.min(dataArray.length - 1, newStart + rangeSize);
     
     setZoomDomain([newStart, newEnd]);
-    setPanStart(e.clientX); // Update pan start for next delta calculation
+    setPanStart(e.clientX);
   };
 
   // Setup pan and wheel event listeners
   useEffect(() => {
+    const rawEl = rawChartRef.current;
+    const aggEl = aggChartRef.current;
+
     const handleRawWheel = (e) => handleWheel(e, rawChartData);
     const handleAggWheel = (e) => handleWheel(e, aggChartData);
-    const handleRawPan = (e) => handlePan(e, rawChartData);
-    const handleAggPan = (e) => handlePan(e, aggChartData);
-
+    
     const handleRawMouseDown = (e) => {
       setIsPanning(true);
       setPanStart(e.clientX);
     };
     const handleRawMouseUp = () => setIsPanning(false);
+    const handleRawMouseMove = (e) => handlePan(e, rawChartData);
 
     const handleAggMouseDown = (e) => {
       setIsPanning(true);
       setPanStart(e.clientX);
     };
     const handleAggMouseUp = () => setIsPanning(false);
-
-    const rawEl = rawChartRef.current;
-    const aggEl = aggChartRef.current;
+    const handleAggMouseMove = (e) => handlePan(e, aggChartData);
 
     if (rawEl) {
       rawEl.addEventListener("wheel", handleRawWheel, { passive: false });
       rawEl.addEventListener("mousedown", handleRawMouseDown);
-      rawEl.addEventListener("mousemove", handleRawPan);
+      rawEl.addEventListener("mousemove", handleRawMouseMove);
       rawEl.addEventListener("mouseup", handleRawMouseUp);
       rawEl.addEventListener("mouseleave", handleRawMouseUp);
     }
     if (aggEl) {
       aggEl.addEventListener("wheel", handleAggWheel, { passive: false });
       aggEl.addEventListener("mousedown", handleAggMouseDown);
-      aggEl.addEventListener("mousemove", handleAggPan);
+      aggEl.addEventListener("mousemove", handleAggMouseMove);
       aggEl.addEventListener("mouseup", handleAggMouseUp);
       aggEl.addEventListener("mouseleave", handleAggMouseUp);
     }
@@ -223,14 +223,14 @@ export default function App() {
       if (rawEl) {
         rawEl.removeEventListener("wheel", handleRawWheel);
         rawEl.removeEventListener("mousedown", handleRawMouseDown);
-        rawEl.removeEventListener("mousemove", handleRawPan);
+        rawEl.removeEventListener("mousemove", handleRawMouseMove);
         rawEl.removeEventListener("mouseup", handleRawMouseUp);
         rawEl.removeEventListener("mouseleave", handleRawMouseUp);
       }
       if (aggEl) {
         aggEl.removeEventListener("wheel", handleAggWheel);
         aggEl.removeEventListener("mousedown", handleAggMouseDown);
-        aggEl.removeEventListener("mousemove", handleAggPan);
+        aggEl.removeEventListener("mousemove", handleAggMouseMove);
         aggEl.removeEventListener("mouseup", handleAggMouseUp);
         aggEl.removeEventListener("mouseleave", handleAggMouseUp);
       }
