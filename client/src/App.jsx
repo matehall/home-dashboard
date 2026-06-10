@@ -101,13 +101,13 @@ export default function App() {
   const [connected, setConnected] = useState(false);
   const [historySensor, setHistorySensor] = useState("utetemperatur");
   const [range, setRange] = useState("24h");
+  const [timeOffsetMs, setTimeOffsetMs] = useState(0);
   const [historyData, setHistoryData] = useState({ raw: [], aggregated: [] });
   const [chartType, setChartType] = useState("line");
   const [zoomDomain, setZoomDomain] = useState(null);
   const rawChartRef = useRef(null);
   const aggChartRef = useRef(null);
-  const [isPanning, setIsPanning] = useState(false);
-  const [panStart, setPanStart] = useState(0);
+  const panRef = useRef({ active: false, lastX: 0, totalDeltaX: 0 });
 
   useEffect(() => {
     const socket = io(SOCKET_URL, { transports: ["websocket"] });
@@ -125,7 +125,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const now = Date.now();
+    const now = Date.now() - timeOffsetMs;
     const timeRange = TIME_RANGES[range];
     const from = timeRange.ms ? now - timeRange.ms : 0;
     const useSum = historySensor === "regn" ? "sum" : "avg";
@@ -136,6 +136,10 @@ export default function App() {
       .catch(() => setHistoryData({ raw: [], aggregated: [] }));
     
     setZoomDomain(null);
+  }, [historySensor, range, timeOffsetMs]);
+
+  useEffect(() => {
+    setTimeOffsetMs(0);
   }, [historySensor, range]);
 
   // Handle mouse wheel zoom
@@ -156,30 +160,50 @@ export default function App() {
 
   const handleResetZoom = () => {
     setZoomDomain(null);
+    setTimeOffsetMs(0);
   };
 
-  // Handle pan (drag to scroll through time)
-  const handlePan = (e, dataArray) => {
-    if (!dataArray || dataArray.length < 2) return;
-    if (!isPanning) return;
+  const handlePanStart = (e) => {
+    panRef.current.active = true;
+    panRef.current.lastX = e.clientX;
+    panRef.current.totalDeltaX = 0;
+  };
 
-    const currentDomain = zoomDomain || [0, dataArray.length - 1];
-    const rangeSize = currentDomain[1] - currentDomain[0];
-    
-    // Calculate pixels per index based on approximate container width
-    const containerWidth = 800;
-    const pixelsPerIndex = containerWidth / rangeSize;
-    
-    // Calculate delta in indices from mouse movement
-    const deltaPixels = e.clientX - panStart;
-    const deltaIndices = -(deltaPixels / pixelsPerIndex);
-    
-    // Update pan position
-    const newStart = Math.max(0, Math.min(dataArray.length - rangeSize - 1, currentDomain[0] + deltaIndices));
-    const newEnd = Math.min(dataArray.length - 1, newStart + rangeSize);
-    
-    setZoomDomain([newStart, newEnd]);
-    setPanStart(e.clientX);
+  const handlePanMove = (e, dataArray, element) => {
+    if (!panRef.current.active || !dataArray || dataArray.length < 2) return;
+
+    const deltaX = e.clientX - panRef.current.lastX;
+    panRef.current.lastX = e.clientX;
+    panRef.current.totalDeltaX += deltaX;
+
+    if (!zoomDomain) return;
+
+    const [start, end] = zoomDomain;
+    const span = end - start;
+    if (span >= dataArray.length - 1) return;
+
+    const width = Math.max(1, element?.getBoundingClientRect().width ?? 1);
+    const shiftBy = Math.round((-deltaX / width) * (span + 1));
+    if (!shiftBy) return;
+
+    const maxStart = dataArray.length - (span + 1);
+    const nextStart = Math.max(0, Math.min(maxStart, start + shiftBy));
+    setZoomDomain([nextStart, nextStart + span]);
+  };
+
+  const handlePanEnd = (element) => {
+    if (!panRef.current.active) return;
+    panRef.current.active = false;
+
+    if (zoomDomain) return;
+    const timeRange = TIME_RANGES[range];
+    if (!timeRange.ms) return;
+
+    const width = Math.max(1, element?.getBoundingClientRect().width ?? 1);
+    const shiftMs = Math.round((-panRef.current.totalDeltaX / width) * timeRange.ms);
+    if (!shiftMs) return;
+
+    setTimeOffsetMs((prev) => Math.max(0, prev + shiftMs));
   };
 
   // Setup pan and wheel event listeners
@@ -189,20 +213,13 @@ export default function App() {
 
     const handleRawWheel = (e) => handleWheel(e, rawChartData);
     const handleAggWheel = (e) => handleWheel(e, aggChartData);
-    
-    const handleRawMouseDown = (e) => {
-      setIsPanning(true);
-      setPanStart(e.clientX);
-    };
-    const handleRawMouseUp = () => setIsPanning(false);
-    const handleRawMouseMove = (e) => handlePan(e, rawChartData);
+    const handleRawMouseDown = (e) => handlePanStart(e);
+    const handleRawMouseUp = () => handlePanEnd(rawEl);
+    const handleRawMouseMove = (e) => handlePanMove(e, rawChartData, rawEl);
 
-    const handleAggMouseDown = (e) => {
-      setIsPanning(true);
-      setPanStart(e.clientX);
-    };
-    const handleAggMouseUp = () => setIsPanning(false);
-    const handleAggMouseMove = (e) => handlePan(e, aggChartData);
+    const handleAggMouseDown = (e) => handlePanStart(e);
+    const handleAggMouseUp = () => handlePanEnd(aggEl);
+    const handleAggMouseMove = (e) => handlePanMove(e, aggChartData, aggEl);
 
     if (rawEl) {
       rawEl.addEventListener("wheel", handleRawWheel, { passive: false });
@@ -235,7 +252,7 @@ export default function App() {
         aggEl.removeEventListener("mouseleave", handleAggMouseUp);
       }
     };
-  }, [zoomDomain, historyData.raw, historyData.aggregated, isPanning, panStart, range]);
+  }, [zoomDomain, historyData.raw, historyData.aggregated, range]);
 
   // Format raw data for chart
   const rawChartData = useMemo(() => 
@@ -308,7 +325,7 @@ export default function App() {
         </div>
 
         {/* Zoom controls */}
-        {(rawChartData.length > 0 || aggChartData.length > 0) && zoomDomain && (
+        {(rawChartData.length > 0 || aggChartData.length > 0) && (zoomDomain || timeOffsetMs > 0) && (
           <div style={{ marginBottom: "16px", textAlign: "right" }}>
             <button 
               onClick={handleResetZoom}
