@@ -235,7 +235,7 @@ export default function App() {
         aggEl.removeEventListener("mouseleave", handleAggMouseUp);
       }
     };
-  }, [zoomDomain, rawChartData, aggChartData, isPanning, panStart]);
+  }, [zoomDomain, historyData.raw, historyData.aggregated, isPanning, panStart, range]);
 
   // Format raw data for chart
   const rawChartData = useMemo(() => 
