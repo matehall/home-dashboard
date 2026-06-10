@@ -107,7 +107,7 @@ export default function App() {
   const [zoomDomain, setZoomDomain] = useState(null);
   const rawChartRef = useRef(null);
   const aggChartRef = useRef(null);
-  const panRef = useRef({ active: false, lastX: 0, totalDeltaX: 0 });
+  const panRef = useRef({ active: false, startX: 0, startOffset: 0, startDomain: null });
 
   useEffect(() => {
     const socket = io(SOCKET_URL, { transports: ["websocket"] });
@@ -164,46 +164,40 @@ export default function App() {
   };
 
   const handlePanStart = (e) => {
+    e.preventDefault();
     panRef.current.active = true;
-    panRef.current.lastX = e.clientX;
-    panRef.current.totalDeltaX = 0;
+    panRef.current.startX = e.clientX;
+    panRef.current.startOffset = timeOffsetMs;
+    panRef.current.startDomain = zoomDomain ? [...zoomDomain] : null;
   };
 
   const handlePanMove = (e, dataArray, element) => {
     if (!panRef.current.active || !dataArray || dataArray.length < 2) return;
 
-    const deltaX = e.clientX - panRef.current.lastX;
-    panRef.current.lastX = e.clientX;
-    panRef.current.totalDeltaX += deltaX;
-
-    if (!zoomDomain) return;
-
-    const [start, end] = zoomDomain;
-    const span = end - start;
-    if (span >= dataArray.length - 1) return;
-
     const width = Math.max(1, element?.getBoundingClientRect().width ?? 1);
-    const shiftBy = Math.round((-deltaX / width) * (span + 1));
-    if (!shiftBy) return;
+    const totalDeltaX = e.clientX - panRef.current.startX;
 
-    const maxStart = dataArray.length - (span + 1);
-    const nextStart = Math.max(0, Math.min(maxStart, start + shiftBy));
-    setZoomDomain([nextStart, nextStart + span]);
-  };
+    if (panRef.current.startDomain) {
+      const [start, end] = panRef.current.startDomain;
+      const span = end - start;
+      if (span >= dataArray.length - 1) return;
 
-  const handlePanEnd = (element) => {
-    if (!panRef.current.active) return;
-    panRef.current.active = false;
+      const shiftBy = Math.round((-totalDeltaX / width) * (span + 1));
+      const maxStart = dataArray.length - (span + 1);
+      const nextStart = Math.max(0, Math.min(maxStart, start + shiftBy));
+      setZoomDomain([nextStart, nextStart + span]);
+      return;
+    }
 
-    if (zoomDomain) return;
     const timeRange = TIME_RANGES[range];
     if (!timeRange.ms) return;
+    const shiftMs = Math.round((-totalDeltaX / width) * timeRange.ms);
+    setTimeOffsetMs(Math.max(0, panRef.current.startOffset + shiftMs));
+  };
 
-    const width = Math.max(1, element?.getBoundingClientRect().width ?? 1);
-    const shiftMs = Math.round((-panRef.current.totalDeltaX / width) * timeRange.ms);
-    if (!shiftMs) return;
-
-    setTimeOffsetMs((prev) => Math.max(0, prev + shiftMs));
+  const handlePanEnd = () => {
+    if (!panRef.current.active) return;
+    panRef.current.active = false;
   };
 
   // Setup pan and wheel event listeners
@@ -211,15 +205,15 @@ export default function App() {
     const rawEl = rawChartRef.current;
     const aggEl = aggChartRef.current;
 
-    const handleRawWheel = (e) => handleWheel(e, rawChartData);
-    const handleAggWheel = (e) => handleWheel(e, aggChartData);
+    const handleRawWheel = (e) => handleWheel(e, historyData.raw || []);
+    const handleAggWheel = (e) => handleWheel(e, historyData.aggregated || []);
     const handleRawMouseDown = (e) => handlePanStart(e);
-    const handleRawMouseUp = () => handlePanEnd(rawEl);
-    const handleRawMouseMove = (e) => handlePanMove(e, rawChartData, rawEl);
+    const handleRawMouseUp = () => handlePanEnd();
+    const handleRawMouseMove = (e) => handlePanMove(e, historyData.raw || [], rawEl);
 
     const handleAggMouseDown = (e) => handlePanStart(e);
-    const handleAggMouseUp = () => handlePanEnd(aggEl);
-    const handleAggMouseMove = (e) => handlePanMove(e, aggChartData, aggEl);
+    const handleAggMouseUp = () => handlePanEnd();
+    const handleAggMouseMove = (e) => handlePanMove(e, historyData.aggregated || [], aggEl);
 
     if (rawEl) {
       rawEl.addEventListener("wheel", handleRawWheel, { passive: false });
@@ -252,7 +246,7 @@ export default function App() {
         aggEl.removeEventListener("mouseleave", handleAggMouseUp);
       }
     };
-  }, [zoomDomain, historyData.raw, historyData.aggregated, range]);
+  }, [zoomDomain, timeOffsetMs, historyData.raw, historyData.aggregated, range]);
 
   // Format raw data for chart
   const rawChartData = useMemo(() => 
