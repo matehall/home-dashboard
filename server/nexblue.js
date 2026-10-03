@@ -30,7 +30,8 @@ class ApiError extends Error {
 }
 
 async function request(method, path, { body, auth = true } = {}) {
-  const headers = { 'Content-Type': 'application/json' };
+  // Content-Type bara med kropp: NexBlue svarar annars 400 "Error Parsing JSON" på GET.
+  const headers = body ? { 'Content-Type': 'application/json' } : {};
   if (auth) headers.Authorization = `Bearer ${tokens.access}`;
   const res = await fetch(`${BASE_URL}${path}`, {
     method,
