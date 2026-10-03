@@ -1,8 +1,9 @@
-require('dotenv').config();
+const path = require('path');
+// Läs alltid server/.env, oavsett vilken katalog processen startas från (pm2 startar från repots rot).
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
-const path = require('path');
 const fs = require('fs');
 const db = require('./db');
 const { startMqttClient } = require('./mqttClient');
