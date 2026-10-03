@@ -9,6 +9,6 @@ cd ../client
 npm install --no-fund --no-audit
 npm run build
 cd ..
-pm install -g pm2
+command -v pm2 >/dev/null || npm install -g pm2
 pm2 restart home-dashboard || pm2 start server/index.js --name home-dashboard
 pm2 save
