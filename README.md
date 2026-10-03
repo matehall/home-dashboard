@@ -9,6 +9,7 @@ Sensordata från väderstationen och pannan skickas redan via MQTT (hanterat av 
 - **Äga datan själv** – spara alla mätvärden i en lokal SQLite-databas, utan molntjänster.
 - **Se läget direkt** – aktuella värden uppdateras live via WebSocket.
 - **Kunna titta bakåt** – historik med zoom och panorering, från en timme upp till flera år, även för data som importerats från openHAB.
+- **Samla energin på ett ställe** – elbilsladdaren (NexBlue Edge 2) visas bredvid väder och panna.
 - **Hålla det enkelt** – en Node-process på hemmanätverket som både serverar API och frontend.
 
 ## Arkitektur
@@ -43,6 +44,17 @@ MQTT-broker ──► server/mqttClient.js ──► SQLite (server/data/dashboa
 
 Vill man lägga till en sensor: lägg till en rad i `SENSOR_MAP` (`server/mqttClient.js`) och i `SENSOR_GROUPS` / `SENSOR_LABELS` (`client/src/App.jsx`).
 
+### Elbilsladdare (NexBlue Edge 2)
+
+`server/nexblue.js` pollar NexBlue OpenAPI (skrivskyddat, standard var 60:e sekund) och sparar `ev_effekt` (kW), `ev_energi_session` och `ev_energi_total` (kWh) samt `ev_status` i samma `readings`-tabell, så historik och diagram fungerar som för övriga sensorer. Övrig status (kabellås, strömgräns, ström/spänning per fas) visas i en panel och skickas via Socket.io-eventet `ev` och `GET /api/ev`.
+
+- API:et har ingen historik – bara aktuell status – så historiken börjar när polling startar.
+- API:et är NexBlues molntjänst (`https://api.nexblue.com/third_party`, standardvärde hämtat från Home Assistants NexBlue-integration), inte laddboxen direkt. Inloggning med NexBlue-kontot via `NEXBLUE_USERNAME`/`NEXBLUE_PASSWORD` i `server/.env`.
+- Integrationen är **avstängd** om användarnamn/lösenord saknas. `NEXBLUE_MOCK=1` ger testdata som aldrig sparas i databasen.
+- Start/stopp av laddning stöds av API:et men är medvetet inte implementerat (dashboarden saknar inloggning).
+- NexBlue Zen (smart meter) saknas i API:et och är inte integrerad.
+- Betydelsen av `charging_state` (0–7) kommer från Home Assistant-integrationen och finns i `CHARGING_STATES` i `client/src/App.jsx`.
+
 ## Kom igång
 
 Krav: Node.js och en MQTT-broker som nås från servern.
@@ -51,7 +63,7 @@ Krav: Node.js och en MQTT-broker som nås från servern.
 
 ```bash
 cd server
-cp .env.example .env     # fyll i MQTT_HOST, MQTT_PORT, MQTT_USER, MQTT_PASS, PORT
+cp .env.example .env     # fyll i MQTT_HOST, MQTT_PORT, MQTT_USER, MQTT_PASS, PORT (och NEXBLUE_* för laddboxen)
 npm install
 npm run dev              # eller: npm start
 ```

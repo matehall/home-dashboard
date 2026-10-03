@@ -6,6 +6,7 @@ const path = require('path');
 const fs = require('fs');
 const db = require('./db');
 const { startMqttClient } = require('./mqttClient');
+const { startNexBlue, getLastEv } = require('./nexblue');
 
 const app = express();
 const server = http.createServer(app);
@@ -26,6 +27,8 @@ app.get('/api/sensors', async (_req, res, next) => {
 app.get('/api/latest', async (_req, res, next) => {
   try { res.json(await db.getLatest()); } catch (err) { next(err); }
 });
+
+app.get('/api/ev', (_req, res) => res.json(getLastEv()));
 
 app.get('/api/history', async (req, res, next) => {
   try {
@@ -48,6 +51,7 @@ io.on('connection', async (socket) => {
   console.log(`[ws] client connected: ${socket.id}`);
   try {
     socket.emit('init', await db.getLatest());
+    if (getLastEv()) socket.emit('ev', getLastEv());
   } catch (err) {
     console.error('[ws] failed to send initial data', err);
   }
@@ -55,6 +59,7 @@ io.on('connection', async (socket) => {
 });
 
 startMqttClient(io);
+startNexBlue(io);
 
 server.listen(PORT, () => {
   console.log(`[server] Home Dashboard running on http://localhost:${PORT}`);

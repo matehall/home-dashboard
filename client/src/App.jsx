@@ -14,6 +14,11 @@ const SENSOR_GROUPS = [
     title: "Panna / Värme",
     sensors: ["framledning", "rok_temp", "panntemp", "returledning"],
   },
+  {
+    title: "Elbilsladdare",
+    sensors: ["ev_effekt", "ev_energi_session", "ev_energi_total"],
+    extra: "ev",
+  },
 ];
 
 const SENSOR_LABELS = {
@@ -25,6 +30,9 @@ const SENSOR_LABELS = {
   rok_temp: "Rök temp",
   panntemp: "Panntemperatur",
   returledning: "Returledning",
+  ev_effekt: "Laddeffekt",
+  ev_energi_session: "Energi (session)",
+  ev_energi_total: "Energi (totalt)",
 };
 
 const TIME_RANGES = {
@@ -79,6 +87,56 @@ function CustomTooltip({ active, payload }) {
   );
 }
 
+// Koderna hämtade från Home Assistants NexBlue-integration (sensor.py).
+const CHARGING_STATES = {
+  0: "Vilar",
+  1: "Ansluten",
+  2: "Laddar",
+  3: "Klar",
+  4: "Fel",
+  5: "Väntar (lastbalansering)",
+  6: "Väntar (fördröjd start)",
+  7: "Väntar på bilen",
+};
+const PHASE_MODES = { 0: "Trefas", 1: "Enfas" };
+
+function yesNo(v, yes, no) {
+  return v === null || v === undefined ? "–" : v ? yes : no;
+}
+
+function EvPanel({ ev }) {
+  if (!ev) return <div className="card ev-panel"><span className="meta">Ingen laddboxdata än</span></div>;
+  const rows = [
+    ["Status", CHARGING_STATES[ev.charging_state] ?? `Kod ${ev.charging_state}`],
+    ["Kabel", yesNo(ev.is_lock, "Låst", "Olåst")],
+    ["Laddbox", yesNo(ev.is_disable, "Avstängd", "Aktiv")],
+    ["Strömgräns", ev.current_limit_a != null ? `${ev.current_limit_a} A` : "–"],
+    ["Huvudsäkring", ev.circuit_fuse_a != null ? `${ev.circuit_fuse_a} A` : "–"],
+    ["Kabel max", ev.cable_current_limit_a != null ? `${ev.cable_current_limit_a} A` : "–"],
+    ["Laddar med", PHASE_MODES[ev.phase_charging] ?? "–"],
+  ];
+  return (
+    <div className="card ev-panel">
+      <div className="card-top">
+        <span className="label">Laddbox {ev.serial}</span>
+        <span className="age">{formatAge(ev.ts)}</span>
+      </div>
+      <dl className="kv">
+        {rows.map(([k, v]) => (<div key={k}><dt>{k}</dt><dd>{v}</dd></div>))}
+      </dl>
+      {ev.current_a.length > 0 && (
+        <table className="phases">
+          <thead><tr><th></th>{ev.current_a.map((_, i) => <th key={i}>L{i + 1}</th>)}</tr></thead>
+          <tbody>
+            <tr><td>Ström</td>{ev.current_a.map((a, i) => <td key={i}>{a.toFixed(1)} A</td>)}</tr>
+            <tr><td>Spänning</td>{ev.voltage_v.map((v, i) => <td key={i}>{v} V</td>)}</tr>
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+
 function SensorCard({ item }) {
   if (!item) return null;
   return (
@@ -98,6 +156,7 @@ function SensorCard({ item }) {
 
 export default function App() {
   const [latest, setLatest] = useState({});
+  const [ev, setEv] = useState(null);
   const [connected, setConnected] = useState(false);
   const [historySensor, setHistorySensor] = useState("utetemperatur");
   const [range, setRange] = useState("24h");
@@ -118,6 +177,7 @@ export default function App() {
       for (const row of rows) map[row.sensor] = row;
       setLatest(map);
     });
+    socket.on("ev", setEv);
     socket.on("update", (row) => {
       setLatest((prev) => ({ ...prev, [row.sensor]: row }));
     });
@@ -298,6 +358,7 @@ export default function App() {
               <SensorCard key={sensor} item={latest[sensor]} />
             ))}
           </div>
+          {group.extra === "ev" && <EvPanel ev={ev} />}
         </section>
       ))}
 

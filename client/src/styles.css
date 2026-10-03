@@ -58,3 +58,12 @@ button, select { font: inherit; }
 .recharts-tooltip-item {
   color: #e5e7eb !important;
 }
+
+.ev-panel { margin-top: 12px; }
+.kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px 16px; margin: 12px 0 0; }
+.kv div { display: flex; justify-content: space-between; gap: 8px; }
+.kv dt { color: #94a3b8; }
+.kv dd { margin: 0; font-weight: 600; }
+.phases { margin-top: 12px; border-collapse: collapse; }
+.phases th, .phases td { padding: 4px 16px 4px 0; text-align: left; font-size: 0.9rem; }
+.phases th, .phases td:first-child { color: #94a3b8; font-weight: 500; }
