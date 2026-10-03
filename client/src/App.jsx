@@ -106,33 +106,38 @@ function yesNo(v, yes, no) {
 
 function EvPanel({ ev }) {
   if (!ev) return <div className="card ev-panel"><span className="meta">Ingen laddboxdata än</span></div>;
-  const rows = [
-    ["Status", CHARGING_STATES[ev.charging_state] ?? `Kod ${ev.charging_state}`],
+  const state = CHARGING_STATES[ev.charging_state] ?? `Kod ${ev.charging_state}`;
+  const tone = ev.charging_state === 2 ? "charging" : ev.charging_state === 4 ? "error" : "idle";
+  const amp = (v) => (v != null ? `${v}A` : "–");
+  const chips = [
     ["Kabel", yesNo(ev.is_lock, "Låst", "Olåst")],
-    ["Laddbox", yesNo(ev.is_disable, "Avstängd", "Aktiv")],
-    ["Strömgräns", ev.current_limit_a != null ? `${ev.current_limit_a} A` : "–"],
-    ["Huvudsäkring", ev.circuit_fuse_a != null ? `${ev.circuit_fuse_a} A` : "–"],
-    ["Kabel max", ev.cable_current_limit_a != null ? `${ev.cable_current_limit_a} A` : "–"],
-    ["Laddar med", PHASE_MODES[ev.phase_charging] ?? "–"],
+    ["Box", yesNo(ev.is_disable, "Av", "På")],
+    ["Gräns", amp(ev.current_limit_a)],
+    ["Säkring", amp(ev.circuit_fuse_a)],
+    ["Kabel max", amp(ev.cable_current_limit_a)],
+    ["Fas", PHASE_MODES[ev.phase_charging] ?? "–"],
   ];
   return (
-    <div className="card ev-panel">
-      <div className="card-top">
-        <span className="label">Laddbox {ev.serial}</span>
-        <span className="age">{formatAge(ev.ts)}</span>
+    <div className={`card ev-panel ${tone}`}>
+      <div className="ev-state">
+        <span className="ev-dot" />
+        <span className="ev-status">{state}</span>
+        <span className="ev-serial">{ev.serial} · {formatAge(ev.ts)}</span>
       </div>
-      <dl className="kv">
-        {rows.map(([k, v]) => (<div key={k}><dt>{k}</dt><dd>{v}</dd></div>))}
-      </dl>
       {ev.current_a.length > 0 && (
-        <table className="phases">
-          <thead><tr><th></th>{ev.current_a.map((_, i) => <th key={i}>L{i + 1}</th>)}</tr></thead>
-          <tbody>
-            <tr><td>Ström</td>{ev.current_a.map((a, i) => <td key={i}>{a.toFixed(1)} A</td>)}</tr>
-            <tr><td>Spänning</td>{ev.voltage_v.map((v, i) => <td key={i}>{v} V</td>)}</tr>
-          </tbody>
-        </table>
+        <div className="ev-phases">
+          {ev.current_a.map((a, i) => (
+            <div key={i} className="ev-phase">
+              <span className="ph">L{i + 1}</span>
+              <span className="ph-a">{a.toFixed(1)}<small>A</small></span>
+              <span className="ph-v">{ev.voltage_v[i]}V</span>
+            </div>
+          ))}
+        </div>
       )}
+      <div className="ev-chips">
+        {chips.map(([k, v]) => (<span key={k} className="chip"><em>{k}</em>{v}</span>))}
+      </div>
     </div>
   );
 }
