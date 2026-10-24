@@ -107,3 +107,17 @@ På servern: `./deploy.sh` (git pull, installera, bygg klienten, starta om via p
 ## Datalagring
 
 Allt ligger i `server/data/dashboard.db` (ingår inte i git). Ta backup på den filen. `db.pruneOlderThan(days)` finns för gallring men används inte automatiskt.
+
+## Docker på Raspberry Pi (arm64)
+
+Push till `main` bygger en arm64-image via GitHub Actions och pushar den till `ghcr.io/matehall/home-dashboard`. Watchtower på Pi:n hämtar den nya imagen (var 5:e minut) och startar om containern.
+
+På Pi:n (en gång):
+
+1. Installera Docker, skapa en katalog och kopiera in `docker-compose.yml`.
+2. Skapa `.env` bredvid (se `server/.env.example`). Använd Pi:ns/brokerns IP för `MQTT_HOST`, inte `localhost`.
+3. Flytta ev. befintlig `dashboard.db` till `./data/`.
+4. Är paketet privat: `docker login ghcr.io` (PAT med `read:packages`) och montera config i Watchtower (se kommentar i compose-filen).
+5. `docker compose up -d`
+
+`deploy.sh` (pm2) behålls tills Docker-flödet är verifierat.
