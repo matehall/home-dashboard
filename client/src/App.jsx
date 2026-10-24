@@ -345,6 +345,11 @@ export default function App() {
     return aggChartData.slice(Math.floor(minIdx), Math.ceil(maxIdx) + 1);
   }, [aggChartData, zoomDomain]);
 
+  const [version, setVersion] = useState(null);
+  useEffect(() => {
+    fetch(`${API_BASE}/api/version`).then((r) => r.json()).then(setVersion).catch(() => {});
+  }, []);
+
   return (
     <div className="app">
       <header className="header">
@@ -509,6 +514,13 @@ export default function App() {
           </div>
         )}
       </section>
+      {version && (
+        <footer className="footer">
+          Version {version.commit}
+          {version.builtAt && ` · byggd ${new Date(version.builtAt).toLocaleString("sv-SE")}`}
+          {` · startad ${new Date(version.startedAt).toLocaleString("sv-SE")}`}
+        </footer>
+      )}
     </div>
   );
 }
