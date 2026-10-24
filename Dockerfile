@@ -18,7 +18,11 @@ COPY server/package*.json ./
 RUN npm ci --omit=dev --no-fund --no-audit
 
 FROM node:20-bookworm-slim
-ENV NODE_ENV=production
+ARG GIT_SHA=dev
+ARG BUILD_TIME=
+ENV NODE_ENV=production \
+    APP_COMMIT=$GIT_SHA \
+    APP_BUILD_TIME=$BUILD_TIME
 WORKDIR /app
 COPY --from=server-deps /app/server/node_modules ./server/node_modules
 COPY server/ ./server/

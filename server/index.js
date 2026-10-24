@@ -29,6 +29,13 @@ app.get('/api/latest', async (_req, res, next) => {
   try { res.json(await db.getLatest()); } catch (err) { next(err); }
 });
 
+const STARTED_AT = new Date().toISOString();
+app.get('/api/version', (_req, res) => res.json({
+  commit: (process.env.APP_COMMIT || 'dev').slice(0, 7),
+  builtAt: process.env.APP_BUILD_TIME || null,
+  startedAt: STARTED_AT,
+}));
+
 app.get('/api/ev', (_req, res) => res.json(getLastEv()));
 
 app.get('/api/history', async (req, res, next) => {
