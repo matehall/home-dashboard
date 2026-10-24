@@ -1,0 +1,23 @@
+# Körs på Raspberry Pi. Lägg .env bredvid denna fil (se server/.env.example).
+services:
+  home-dashboard:
+    image: ghcr.io/matehall/home-dashboard:latest
+    container_name: home-dashboard
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file: .env
+    volumes:
+      - ./data:/app/server/data
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
+
+  watchtower:
+    image: containrrr/watchtower
+    container_name: watchtower
+    restart: unless-stopped
+    command: --label-enable --interval 300 --cleanup
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Om imagen är privat: docker login ghcr.io och montera config
+      # - /home/pi/.docker/config.json:/config.json:ro
