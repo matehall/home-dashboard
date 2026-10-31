@@ -121,3 +121,8 @@ På Pi:n (en gång):
 5. `docker compose up -d`
 
 `deploy.sh` (pm2) behålls tills Docker-flödet är verifierat.
+
+## Tuya-brytare (valfritt)
+
+Visar status (på/av, offline) och för brytare med energimätning effekt, spänning, ström och kWh. Skrivskyddat via Tuya Cloud API.
+Skapa ett Cloud-projekt på iot.tuya.com, länka Smart Life-appen och fyll i `TUYA_ACCESS_ID`, `TUYA_ACCESS_SECRET`, `TUYA_UID` (och `TUYA_ENDPOINT` om du inte är i EU) i `.env`. `TUYA_MOCK=1` ger testdata. Se `server/.env.example`.

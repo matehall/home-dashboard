@@ -24,6 +24,11 @@ const SENSOR_GROUPS = [
     sensors: ["vacuum_batteri", "vacuum_yta"],
     extra: "vacuum",
   },
+  {
+    title: "Inomhus & brytare",
+    sensors: [],
+    extra: "tuya",
+  },
 ];
 
 const SENSOR_LABELS = {
@@ -191,6 +196,56 @@ function VacuumPanel({ vacuum }) {
   );
 }
 
+function TuyaPanel({ tuya }) {
+  if (!tuya) return <div className="card ev-panel"><span className="meta">Ingen brytardata än</span></div>;
+  const climate = tuya.devices.filter((d) => d.temperature_c !== null || d.humidity !== null);
+  const others = tuya.devices.filter((d) => !climate.includes(d) && (d.on !== null || d.power_w !== null || !d.online));
+  return (
+    <>
+      {climate.length > 0 && (
+        <div className="grid">
+          {climate.map((d) => (
+            <div key={d.id} className="card">
+              <div className="card-top">
+                <span className="label">{d.name}</span>
+                <span className="age">{d.online ? formatAge(tuya.ts) : "offline"}</span>
+              </div>
+              <div className="value-row">
+                <span className="value">{d.online && d.temperature_c !== null ? d.temperature_c.toFixed(1) : "–"}</span>
+                <span className="unit">°C</span>
+              </div>
+              <div className="meta">
+                {d.online ? `Fukt ${d.humidity ?? "–"} % · Batteri ${d.battery ?? "–"} %` : "Ingen kontakt"}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {others.map((d) => {
+        const tone = !d.online ? "error" : d.on ? "charging" : "idle";
+        const state = !d.online ? "Offline" : d.on === null ? "–" : d.on ? "På" : "Av";
+        const chips = [];
+        if (d.power_w !== null) chips.push(["Effekt", `${d.power_w.toFixed(d.power_w < 100 ? 1 : 0)} W`]);
+        if (d.voltage_v !== null) chips.push(["Spänning", `${d.voltage_v.toFixed(0)} V`]);
+        if (d.current_a !== null) chips.push(["Ström", `${d.current_a.toFixed(2)} A`]);
+        if (d.energy_kwh !== null) chips.push(["Energi", `${d.energy_kwh.toFixed(2)} kWh`]);
+        return (
+          <div key={d.id} className={`card ev-panel ${tone}`}>
+            <div className="ev-state">
+              <span className="ev-dot" />
+              <span className="ev-status">{state}</span>
+              <span className="ev-serial">{d.name} · {formatAge(tuya.ts)}</span>
+            </div>
+            <div className="ev-chips">
+              {chips.map(([k, v]) => (<span key={k} className="chip"><em>{k}</em>{v}</span>))}
+            </div>
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
 function SensorCard({ item }) {
   if (!item) return null;
   return (
@@ -212,6 +267,7 @@ export default function App() {
   const [latest, setLatest] = useState({});
   const [ev, setEv] = useState(null);
   const [vacuum, setVacuum] = useState(null);
+  const [tuya, setTuya] = useState(null);
   const [connected, setConnected] = useState(false);
   const [historySensor, setHistorySensor] = useState("utetemperatur");
   const [range, setRange] = useState("24h");
@@ -234,6 +290,7 @@ export default function App() {
     });
     socket.on("ev", setEv);
     socket.on("vacuum", setVacuum);
+    socket.on("tuya", setTuya);
     socket.on("update", (row) => {
       setLatest((prev) => ({ ...prev, [row.sensor]: row }));
     });
@@ -421,6 +478,7 @@ export default function App() {
           </div>
           {group.extra === "ev" && <EvPanel ev={ev} />}
           {group.extra === "vacuum" && <VacuumPanel vacuum={vacuum} />}
+          {group.extra === "tuya" && <TuyaPanel tuya={tuya} />}
         </section>
       ))}
 
@@ -430,6 +488,14 @@ export default function App() {
           <select value={historySensor} onChange={(e) => setHistorySensor(e.target.value)}>
             {Object.keys(SENSOR_LABELS).map((sensor) => (
               <option key={sensor} value={sensor}>{SENSOR_LABELS[sensor]}</option>
+            ))}
+            {(tuya?.devices ?? []).flatMap((d) => [
+              d.power_w !== null && [`tuya_${d.id}_effekt`, `${d.name} effekt`],
+              d.energy_kwh !== null && [`tuya_${d.id}_energi`, `${d.name} energi`],
+              d.temperature_c !== null && [`tuya_${d.id}_temp`, `${d.name} temperatur`],
+              d.humidity !== null && [`tuya_${d.id}_fukt`, `${d.name} fukt`],
+            ]).filter(Boolean).map(([sensor, label]) => (
+              <option key={sensor} value={sensor}>{label}</option>
             ))}
           </select>
           <div className="range-buttons">
