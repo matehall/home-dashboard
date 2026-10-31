@@ -9,6 +9,7 @@ const db = require('./db');
 const { startMqttClient } = require('./mqttClient');
 const { startNexBlue, getLastEv } = require('./nexblue');
 const { startRoborock, getLastVacuum } = require('./roborock');
+const { startTuya, getLastTuya } = require('./tuya');
 
 const app = express();
 const server = http.createServer(app);
@@ -39,6 +40,7 @@ app.get('/api/version', (_req, res) => res.json({
 
 app.get('/api/ev', (_req, res) => res.json(getLastEv()));
 app.get('/api/vacuum', (_req, res) => res.json(getLastVacuum()));
+app.get('/api/tuya', (_req, res) => res.json(getLastTuya()));
 
 app.get('/api/history', async (req, res, next) => {
   try {
@@ -63,6 +65,7 @@ io.on('connection', async (socket) => {
     socket.emit('init', await db.getLatest());
     if (getLastEv()) socket.emit('ev', getLastEv());
     if (getLastVacuum()) socket.emit('vacuum', getLastVacuum());
+    if (getLastTuya()) socket.emit('tuya', getLastTuya());
   } catch (err) {
     console.error('[ws] failed to send initial data', err);
   }
@@ -72,6 +75,7 @@ io.on('connection', async (socket) => {
 startMqttClient(io);
 startNexBlue(io);
 startRoborock(io);
+startTuya(io);
 
 server.listen(PORT, () => {
   console.log(`[server] Home Dashboard running on http://localhost:${PORT}`);
