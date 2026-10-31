@@ -1,0 +1,17 @@
+# Testinstans på Pi:n bredvid produktion: prova ett PR-bygge innan det byter ut :latest.
+# Ingen Watchtower-label, egen port och egen databas, så produktionen påverkas inte.
+#
+#   cp .env .env.test   # ta bort ROBOROCK_*/NEXBLUE_* (så de inte pollas dubbelt), ev. TUYA_MOCK=1
+#   TAG=pr-5 docker compose -f docker-compose.test.yml up -d --pull always
+#   http://<pi>:3001 ; kolla footern eller /api/version att rätt commit körs
+#   docker compose -f docker-compose.test.yml down   # städa; ta bort ./data-test vid behov
+services:
+  home-dashboard-test:
+    image: ghcr.io/matehall/home-dashboard:${TAG:?sätt TAG, t.ex. TAG=pr-5}
+    container_name: home-dashboard-test
+    restart: "no"
+    ports:
+      - "3001:3000"
+    env_file: .env.test
+    volumes:
+      - ./data-test:/app/server/data
