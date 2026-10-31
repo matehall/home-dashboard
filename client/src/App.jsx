@@ -19,6 +19,11 @@ const SENSOR_GROUPS = [
     sensors: ["ev_effekt", "ev_energi_session", "ev_energi_total"],
     extra: "ev",
   },
+  {
+    title: "Robotdammsugare",
+    sensors: ["vacuum_batteri", "vacuum_yta"],
+    extra: "vacuum",
+  },
 ];
 
 const SENSOR_LABELS = {
@@ -33,6 +38,8 @@ const SENSOR_LABELS = {
   ev_effekt: "Laddeffekt",
   ev_energi_session: "Energi (session)",
   ev_energi_total: "Energi (totalt)",
+  vacuum_batteri: "Batteri",
+  vacuum_yta: "Städad yta",
 };
 
 const TIME_RANGES = {
@@ -142,6 +149,48 @@ function EvPanel({ ev }) {
   );
 }
 
+// Koderna från python-miio (roborockvacuum.py), gäller Roborock S5.
+const VACUUM_STATES = {
+  1: "Startar", 2: "Frånkopplad från laddare", 3: "Redo", 4: "Fjärrstyrd", 5: "Städar",
+  6: "Åker till laddaren", 7: "Manuellt läge", 8: "Laddar", 9: "Laddningsproblem", 10: "Pausad",
+  11: "Punktstädning", 12: "Fel", 13: "Stänger av", 14: "Uppdaterar", 15: "Dockar",
+  16: "Åker till mål", 17: "Zonstädning", 18: "Rumsstädning", 100: "Laddad",
+};
+const VACUUM_ERRORS = {
+  1: "Lasersensor", 2: "Kollisionssensor", 3: "Hjul svävar", 4: "Stupsensor", 5: "Huvudborste fastnat",
+  6: "Sidoborste fastnat", 7: "Hjul fastnat", 8: "Fastnat", 9: "Dammbehållare saknas", 10: "Filter blockerat",
+  11: "Magnetfält", 12: "Lågt batteri", 13: "Laddningsproblem", 14: "Batterifel", 15: "Väggsensor smutsig",
+  16: "Ställ på plant underlag", 17: "Sidoborste fel", 18: "Sugfläkt fel", 19: "Laddstation utan ström",
+  21: "Laser blockerad", 22: "Laddkontakter smutsiga",
+};
+const VACUUM_FANS = { 101: "Tyst", 102: "Balanserad", 103: "Turbo", 104: "Max", 105: "Moppning" };
+const VACUUM_ACTIVE = [4, 5, 7, 11, 16, 17, 18];
+
+function VacuumPanel({ vacuum }) {
+  if (!vacuum) return <div className="card ev-panel"><span className="meta">Ingen dammsugardata än</span></div>;
+  const hasError = vacuum.error_code > 0;
+  const state = hasError ? (VACUUM_ERRORS[vacuum.error_code] ?? `Fel ${vacuum.error_code}`) : (VACUUM_STATES[vacuum.state] ?? `Kod ${vacuum.state}`);
+  const tone = hasError || vacuum.state === 12 ? "error" : VACUUM_ACTIVE.includes(vacuum.state) ? "charging" : "idle";
+  const chips = [
+    ["Batteri", `${vacuum.battery}%`],
+    ["Senaste städ", `${Math.round(vacuum.clean_time_s / 60)} min`],
+    ["Yta", `${vacuum.clean_area_m2.toFixed(1)} m²`],
+    ["Sugkraft", VACUUM_FANS[vacuum.fan_power] ?? "–"],
+  ];
+  return (
+    <div className={`card ev-panel ${tone}`}>
+      <div className="ev-state">
+        <span className="ev-dot" />
+        <span className="ev-status">{state}</span>
+        <span className="ev-serial">Roborock S5 · {formatAge(vacuum.ts)}</span>
+      </div>
+      <div className="ev-chips">
+        {chips.map(([k, v]) => (<span key={k} className="chip"><em>{k}</em>{v}</span>))}
+      </div>
+    </div>
+  );
+}
+
 function SensorCard({ item }) {
   if (!item) return null;
   return (
@@ -162,6 +211,7 @@ function SensorCard({ item }) {
 export default function App() {
   const [latest, setLatest] = useState({});
   const [ev, setEv] = useState(null);
+  const [vacuum, setVacuum] = useState(null);
   const [connected, setConnected] = useState(false);
   const [historySensor, setHistorySensor] = useState("utetemperatur");
   const [range, setRange] = useState("24h");
@@ -183,6 +233,7 @@ export default function App() {
       setLatest(map);
     });
     socket.on("ev", setEv);
+    socket.on("vacuum", setVacuum);
     socket.on("update", (row) => {
       setLatest((prev) => ({ ...prev, [row.sensor]: row }));
     });
@@ -369,6 +420,7 @@ export default function App() {
             ))}
           </div>
           {group.extra === "ev" && <EvPanel ev={ev} />}
+          {group.extra === "vacuum" && <VacuumPanel vacuum={vacuum} />}
         </section>
       ))}
 
