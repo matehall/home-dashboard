@@ -4,5 +4,4 @@ server/data/
 .env
 *.db
 .DS_Store
-.env.test
-data-test/
+data-preview/
