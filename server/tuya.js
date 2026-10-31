@@ -64,7 +64,7 @@ function normalize(d) {
 async function fetchDevices() {
   await ensureToken();
   const list = await request(`/v1.0/users/${encodeURIComponent(UID)}/devices`);
-  return (list || []).filter((d) => (d.status || []).some((s) => /^switch|^va_temperature$/.test(s.code))).map(normalize);
+  return (list || []).map(normalize); // alla definierade enheter, även offline
 }
 
 function fetchMockDevices() {

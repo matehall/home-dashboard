@@ -199,7 +199,7 @@ function VacuumPanel({ vacuum }) {
 function TuyaPanel({ tuya }) {
   if (!tuya) return <div className="card ev-panel"><span className="meta">Ingen brytardata än</span></div>;
   const climate = tuya.devices.filter((d) => d.temperature_c !== null || d.humidity !== null);
-  const others = tuya.devices.filter((d) => !climate.includes(d) && (d.on !== null || d.power_w !== null || !d.online));
+  const others = tuya.devices.filter((d) => !climate.includes(d));
   return (
     <>
       {climate.length > 0 && (
@@ -221,27 +221,27 @@ function TuyaPanel({ tuya }) {
           ))}
         </div>
       )}
-      {others.map((d) => {
-        const tone = !d.online ? "error" : d.on ? "charging" : "idle";
-        const state = !d.online ? "Offline" : d.on === null ? "–" : d.on ? "På" : "Av";
-        const chips = [];
-        if (d.power_w !== null) chips.push(["Effekt", `${d.power_w.toFixed(d.power_w < 100 ? 1 : 0)} W`]);
-        if (d.voltage_v !== null) chips.push(["Spänning", `${d.voltage_v.toFixed(0)} V`]);
-        if (d.current_a !== null) chips.push(["Ström", `${d.current_a.toFixed(2)} A`]);
-        if (d.energy_kwh !== null) chips.push(["Energi", `${d.energy_kwh.toFixed(2)} kWh`]);
-        return (
-          <div key={d.id} className={`card ev-panel ${tone}`}>
-            <div className="ev-state">
-              <span className="ev-dot" />
-              <span className="ev-status">{state}</span>
-              <span className="ev-serial">{d.name} · {formatAge(tuya.ts)}</span>
-            </div>
-            <div className="ev-chips">
-              {chips.map(([k, v]) => (<span key={k} className="chip"><em>{k}</em>{v}</span>))}
-            </div>
-          </div>
-        );
-      })}
+      {others.length > 0 && (
+        <div className="grid mini-grid">
+          {others.map((d) => {
+            const tone = !d.online ? "error" : d.on ? "charging" : "idle";
+            const state = !d.online ? "Offline" : d.on === null ? "Online" : d.on ? "På" : "Av";
+            const chips = [];
+            if (d.power_w !== null) chips.push(`${d.power_w.toFixed(d.power_w < 100 ? 1 : 0)} W`);
+            if (d.voltage_v !== null) chips.push(`${d.voltage_v.toFixed(0)} V`);
+            if (d.current_a !== null) chips.push(`${d.current_a.toFixed(2)} A`);
+            if (d.energy_kwh !== null) chips.push(`${d.energy_kwh.toFixed(2)} kWh`);
+            return (
+              <div key={d.id} className={`card mini ev-panel ${tone}`}>
+                <span className="ev-dot" />
+                <span className="mini-name">{d.name.trim()}</span>
+                <span className="ev-status">{state}</span>
+                {chips.length > 0 && <span className="meta mini-chips">{chips.join(" · ")}</span>}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </>
   );
 }
