@@ -27,6 +27,7 @@ services:
       NEXBLUE_USERNAME: ""
       NEXBLUE_PASSWORD: ""
       TUYA_POLL_SECONDS: "60"
+      TUYA_MOCK: "0" # riktiga data i förhandsvisningen, även om .env har TUYA_MOCK=1
     volumes:
       - ./data-preview:/app/server/data
     labels:
