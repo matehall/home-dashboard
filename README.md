@@ -126,7 +126,3 @@ På Pi:n (en gång):
 
 Visar status (på/av, offline) och för brytare med energimätning effekt, spänning, ström och kWh. Skrivskyddat via Tuya Cloud API.
 Skapa ett Cloud-projekt på iot.tuya.com, länka Smart Life-appen och fyll i `TUYA_ACCESS_ID`, `TUYA_ACCESS_SECRET`, `TUYA_UID` (och `TUYA_ENDPOINT` om du inte är i EU) i `.env`. `TUYA_MOCK=1` ger testdata. Se `server/.env.example`.
-
-## Förhandsvisning av PR-bygge
-
-Varje bygge (PR eller `main`) pushas även som `ghcr.io/matehall/home-dashboard:preview`. Containern `home-dashboard-preview` i `docker-compose.yml` kör den på port 3001 med egen databas (`data-preview`), och Watchtower uppdaterar den automatiskt. Produktionen (`:latest`, port 3000) byts bara ut vid merge till `main`. Footern/`/api/version` visar vilken commit som körs. Roborock och NexBlue är avstängda i förhandsvisningen.

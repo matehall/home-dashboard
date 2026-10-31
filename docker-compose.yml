@@ -12,27 +12,6 @@ services:
     labels:
       - com.centurylinklabs.watchtower.enable=true
 
-  # Förhandsvisning på port 3001: senaste bygget (PR eller main) tagg `preview`, uppdateras av Watchtower
-  # innan en PR mergas. Egen databas; Roborock/NexBlue är avstängda så de inte pollas dubbelt.
-  home-dashboard-preview:
-    image: ghcr.io/matehall/home-dashboard:preview
-    container_name: home-dashboard-preview
-    restart: unless-stopped
-    ports:
-      - "3001:3000"
-    env_file: .env
-    environment:
-      ROBOROCK_IP: ""
-      ROBOROCK_TOKEN: ""
-      NEXBLUE_USERNAME: ""
-      NEXBLUE_PASSWORD: ""
-      TUYA_POLL_SECONDS: "60"
-      TUYA_MOCK: "0" # riktiga data i förhandsvisningen, även om .env har TUYA_MOCK=1
-    volumes:
-      - ./data-preview:/app/server/data
-    labels:
-      - com.centurylinklabs.watchtower.enable=true
-
   watchtower:
     image: nickfedor/watchtower
     container_name: watchtower

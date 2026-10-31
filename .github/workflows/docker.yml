@@ -3,8 +3,6 @@ name: docker
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
 
 permissions:
   contents: read
@@ -27,9 +25,7 @@ jobs:
         with:
           images: ghcr.io/${{ github.repository }}
           tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=raw,value=preview
-            type=ref,event=pr
+            type=raw,value=latest
             type=sha
       - uses: docker/build-push-action@v6
         with:
@@ -39,7 +35,7 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
-            GIT_SHA=${{ github.event.pull_request.head.sha || github.sha }}
-            BUILD_TIME=${{ github.event.head_commit.timestamp || github.event.pull_request.updated_at }}
+            GIT_SHA=${{ github.sha }}
+            BUILD_TIME=${{ github.event.head_commit.timestamp }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

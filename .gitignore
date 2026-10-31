@@ -4,4 +4,3 @@ server/data/
 .env
 *.db
 .DS_Store
-data-preview/
