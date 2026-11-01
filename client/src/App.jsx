@@ -241,6 +241,12 @@ function DeviceDetails({ id, onClose }) {
             <pre className="raw">{JSON.stringify(data.raw, null, 2)}</pre>
             <h4 className="modal-h">Specifikation</h4>
             <pre className="raw">{JSON.stringify(data.specifications, null, 2)}</pre>
+            {Object.entries(data.probes ?? {}).map(([k, v]) => (
+              <div key={k}>
+                <h4 className="modal-h">{k}</h4>
+                <pre className="raw">{JSON.stringify(v, null, 2)}</pre>
+              </div>
+            ))}
           </>
         )}
       </div>

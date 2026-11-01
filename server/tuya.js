@@ -17,7 +17,8 @@ const EMPTY_SHA256 = crypto.createHash('sha256').update('').digest('hex');
 
 let lastTuya = null;
 let rawById = {}; // rådata per enhet för detaljrutan; skickas aldrig via socket
-const SECRET_FIELDS = ['local_key', 'lat', 'lon']; // enhetens lokala nyckel och position ska aldrig lämna servern
+// Enhetens lokala nyckel, position, publika IP och konto-id:n ska aldrig lämna servern (dashboarden saknar inloggning).
+const SECRET_FIELDS = ['local_key', 'lat', 'lon', 'ip', 'uid', 'owner_id', 'uuid'];
 const lastStored = {};
 let token = null; // { value, expiresAt }
 
@@ -47,8 +48,11 @@ async function ensureToken() {
 // Nya temp/fuktgivare hamnar då rätt direkt, utan ändring i klienten.
 const CLIMATE_CATEGORY = /^wsd/; // wsdcg m.fl. (temperatur/fuktgivare)
 const CLIMATE_CODES = ['va_temperature', 'va_humidity', 'temp_current', 'humidity_value'];
+// Vissa givare är registrerade med fel category (t.ex. "T & H Sensor" som tdq = brytare) och saknar status i listan.
+const CLIMATE_PRODUCT = /\bt\s*&\s*h\b|humidity|temperature/i;
 function kindOf(d, dp) {
   if (CLIMATE_CATEGORY.test(d.category || '')) return 'climate';
+  if (CLIMATE_PRODUCT.test(d.product_name || '')) return 'climate';
   return CLIMATE_CODES.some((c) => c in dp) ? 'climate' : 'switch';
 }
 
@@ -153,7 +157,24 @@ async function getDeviceDetails(id) {
   } catch (err) {
     specifications = { error: err.message };
   }
-  return { device, raw: rawById[id] ?? null, specifications, ts: lastTuya.ts };
+  // Diagnos: vilka API:er ger värden för enheter som saknar status i listan? Varje anrop är best effort.
+  const q = encodeURIComponent(id);
+  const now = Date.now();
+  const logQuery = new URLSearchParams({ end_time: now, query_type: 1, size: 20, start_time: now - 24 * 3600 * 1000, type: 7 });
+  logQuery.sort(); // Tuya kräver sorterade parametrar i signeringen
+  const probe = async (path) => {
+    try {
+      return await request(path);
+    } catch (err) {
+      return { error: err.message };
+    }
+  };
+  const probes = {
+    status: await probe(`/v1.0/devices/${q}/status`),
+    shadow_properties: await probe(`/v2.0/cloud/thing/${q}/shadow/properties`),
+    logs_24h: await probe(`/v1.0/devices/${q}/logs?${logQuery}`),
+  };
+  return { device, raw: rawById[id] ?? null, specifications, probes, ts: lastTuya.ts };
 }
 
 module.exports = { startTuya, getLastTuya: () => lastTuya, getDeviceDetails };
