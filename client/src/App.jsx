@@ -23,6 +23,7 @@ const SENSOR_GROUPS = [
     title: "Elpris",
     sensors: [],
     extra: "electricity",
+    wide: true,
   },
   {
     title: "Robotdammsugare",
@@ -33,6 +34,7 @@ const SENSOR_GROUPS = [
     title: "Inomhus & brytare",
     sensors: [],
     extra: "tuya",
+    wide: true,
   },
 ];
 
@@ -607,8 +609,9 @@ export default function App() {
         <div className={`status ${connected ? "up" : "down"}`}>{connected ? "Ansluten" : "Frånkopplad"}</div>
       </header>
 
+      <div className="sections">
       {SENSOR_GROUPS.map((group) => (
-        <section key={group.title} className="section">
+        <section key={group.title} className={`section${group.wide ? " wide" : ""}`}>
           <h2>{group.title}</h2>
           <div className="grid">
             {group.sensors.map((sensor) => (
@@ -621,6 +624,7 @@ export default function App() {
           {group.extra === "tuya" && <TuyaPanel tuya={tuya} />}
         </section>
       ))}
+      </div>
 
       <section className="section">
         <div className="chart-head">

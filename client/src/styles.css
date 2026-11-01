@@ -6,7 +6,10 @@
 * { box-sizing: border-box; }
 body { margin: 0; background: linear-gradient(180deg, #0f172a 0%, #111827 100%); color: #e5e7eb; }
 button, select { font: inherit; }
-.app { max-width: 1200px; margin: 0 auto; padding: 24px; }
+.app { max-width: 1920px; margin: 0 auto; padding: 24px; }
+/* Sektionerna ligger bredvid varandra på breda skärmar; wide-sektioner (graf, enhetslista) tar hela raden. */
+.sections { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr)); gap: 0 24px; align-items: start; }
+.sections .section.wide { grid-column: 1 / -1; }
 .header { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 24px; }
 .header h1 { margin: 0; font-size: 2rem; }
 .header p { margin: 6px 0 0; color: #94a3b8; }
