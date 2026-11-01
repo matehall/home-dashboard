@@ -20,6 +20,15 @@ db.serialize(() => {
     )
   `);
   db.run('CREATE INDEX IF NOT EXISTS idx_sensor_ts ON readings (sensor, ts)');
+  // Elpris per kvart (öre/kWh, rent spotpris). ts_start = kvartens början i epoch-ms.
+  db.run(`
+    CREATE TABLE IF NOT EXISTS prices (
+      area        TEXT    NOT NULL,
+      ts_start    INTEGER NOT NULL,
+      ore_per_kwh REAL    NOT NULL,
+      PRIMARY KEY (area, ts_start)
+    )
+  `);
 });
 
 function run(sql, params = []) {
@@ -41,6 +50,36 @@ function all(sql, params = []) {
 }
 
 module.exports = {
+  // Skriver bara rader som är nya eller har ändrat pris, för att skona SD-kortet.
+  async upsertPrices(area, rows) {
+    await run('BEGIN');
+    try {
+      for (const { ts, ore } of rows) {
+        await run(
+          `INSERT INTO prices (area, ts_start, ore_per_kwh) VALUES (?, ?, ?)
+           ON CONFLICT (area, ts_start) DO UPDATE SET ore_per_kwh = excluded.ore_per_kwh
+           WHERE ore_per_kwh != excluded.ore_per_kwh`,
+          [area, ts, ore],
+        );
+      }
+      await run('COMMIT');
+    } catch (err) {
+      await run('ROLLBACK').catch(() => {});
+      throw err;
+    }
+  },
+
+  getPrices(area, fromTs, toTs) {
+    return all(
+      'SELECT ts_start AS ts, ore_per_kwh AS ore FROM prices WHERE area = ? AND ts_start >= ? AND ts_start < ? ORDER BY ts_start',
+      [area, fromTs, toTs],
+    );
+  },
+
+  prunePrices(olderThanTs) {
+    return run('DELETE FROM prices WHERE ts_start < ?', [olderThanTs]);
+  },
+
   insertReading(sensor, topic, value, unit, ts = Date.now()) {
     return run('INSERT INTO readings (sensor, topic, value, unit, ts) VALUES (?, ?, ?, ?, ?)', [sensor, topic, value, unit, ts]);
   },

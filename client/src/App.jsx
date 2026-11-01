@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { io } from "socket.io-client";
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import { LineChart, Line, BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 
 const API_BASE = "";
 const SOCKET_URL = typeof window !== "undefined" ? window.location.origin : "http://192.168.1.8:3000";
@@ -18,6 +18,11 @@ const SENSOR_GROUPS = [
     title: "Elbilsladdare",
     sensors: ["ev_effekt", "ev_energi_session", "ev_energi_total"],
     extra: "ev",
+  },
+  {
+    title: "Elpris",
+    sensors: [],
+    extra: "electricity",
   },
   {
     title: "Robotdammsugare",
@@ -256,6 +261,69 @@ function DeviceDetails({ id, onClose }) {
   );
 }
 
+const PRICE_TZ = "Europe/Stockholm";
+const QUARTER_MS = 15 * 60 * 1000;
+const dayKey = (ts) => new Intl.DateTimeFormat("sv-SE", { timeZone: PRICE_TZ }).format(new Date(ts));
+const quarterLabel = (ts) =>
+  new Intl.DateTimeFormat("sv-SE", { timeZone: PRICE_TZ, hour: "2-digit", minute: "2-digit" }).format(new Date(ts));
+const formatOre = (v) => (v === null || v === undefined ? "–" : `${v.toFixed(1).replace(".", ",")} öre/kWh`);
+
+function ElectricityPanel({ electricity }) {
+  const [day, setDay] = useState("today");
+  if (!electricity) return <div className="card ev-panel"><span className="meta">Inga elpriser än</span></div>;
+
+  const now = Date.now();
+  const todayKey = dayKey(now);
+  const tomorrowKey = dayKey(now + 24 * 3600 * 1000);
+  const hasTomorrow = electricity.prices.some((p) => dayKey(p.ts) === tomorrowKey);
+  const shownKey = day === "tomorrow" && hasTomorrow ? tomorrowKey : todayKey;
+  const data = electricity.prices
+    .filter((p) => dayKey(p.ts) === shownKey)
+    .map((p) => ({ ...p, label: quarterLabel(p.ts), past: p.ts + QUARTER_MS <= now }));
+  const upcoming = electricity.prices.filter((p) => p.ts + QUARTER_MS > now);
+  const cheapest = upcoming.length ? upcoming.reduce((a, b) => (b.ore < a.ore ? b : a)) : null;
+  const ores = data.map((p) => p.ore);
+  const current = electricity.prices.find((p) => p.ts <= now && now < p.ts + QUARTER_MS)?.ore ?? null;
+
+  return (
+    <div className="card elpris-panel">
+      <div className="card-top">
+        <div>
+          <span className="meta">Nu ({electricity.area}, rent spotpris)</span>
+          <div className="elpris-now">{formatOre(current)}</div>
+        </div>
+        <div className="elpris-stats">
+          {ores.length > 0 && <span>Lägst {formatOre(Math.min(...ores))}</span>}
+          {ores.length > 0 && <span>Högst {formatOre(Math.max(...ores))}</span>}
+          {cheapest && <span>Billigast framåt {quarterLabel(cheapest.ts)} ({formatOre(cheapest.ore)})</span>}
+        </div>
+        <div className="elpris-days">
+          <button type="button" className={shownKey === todayKey ? "active" : ""} onClick={() => setDay("today")}>Idag</button>
+          <button type="button" className={shownKey === tomorrowKey ? "active" : ""} disabled={!hasTomorrow} onClick={() => setDay("tomorrow")}>Imorgon</button>
+        </div>
+      </div>
+      <div className="elpris-chart">
+        <ResponsiveContainer width="100%" height={240}>
+          <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} barCategoryGap={1}>
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.15)" vertical={false} />
+            <XAxis dataKey="label" interval={4} tick={{ fill: "#94a3b8", fontSize: 11 }} />
+            <YAxis unit=" öre" width={64} tick={{ fill: "#94a3b8", fontSize: 11 }} />
+            <Tooltip
+              cursor={{ fill: "rgba(148,163,184,0.1)" }}
+              contentStyle={{ background: "#0f172a", border: "1px solid rgba(148,163,184,0.3)", borderRadius: 8 }}
+              formatter={(v) => [formatOre(v), "Pris"]}
+              labelFormatter={(l) => `Kl. ${l}`}
+            />
+            <Bar dataKey="ore" isAnimationActive={false}>
+              {data.map((p) => <Cell key={p.ts} fill={p.past ? "#64748b" : "#8b5cf6"} />)}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
 function TuyaPanel({ tuya }) {
   const [selected, setSelected] = useState(null);
   const closeDetails = useCallback(() => setSelected(null), []);
@@ -337,6 +405,7 @@ export default function App() {
   const [ev, setEv] = useState(null);
   const [vacuum, setVacuum] = useState(null);
   const [tuya, setTuya] = useState(null);
+  const [electricity, setElectricity] = useState(null);
   const [connected, setConnected] = useState(false);
   const [historySensor, setHistorySensor] = useState("utetemperatur");
   const [range, setRange] = useState("24h");
@@ -360,6 +429,7 @@ export default function App() {
     socket.on("ev", setEv);
     socket.on("vacuum", setVacuum);
     socket.on("tuya", setTuya);
+    socket.on("electricity", setElectricity);
     socket.on("update", (row) => {
       setLatest((prev) => ({ ...prev, [row.sensor]: row }));
     });
@@ -547,6 +617,7 @@ export default function App() {
           </div>
           {group.extra === "ev" && <EvPanel ev={ev} />}
           {group.extra === "vacuum" && <VacuumPanel vacuum={vacuum} />}
+          {group.extra === "electricity" && <ElectricityPanel electricity={electricity} />}
           {group.extra === "tuya" && <TuyaPanel tuya={tuya} />}
         </section>
       ))}
