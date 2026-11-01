@@ -11,6 +11,7 @@ const { startNexBlue, getLastEv } = require('./nexblue');
 const { startRoborock, getLastVacuum } = require('./roborock');
 const { startTuya, getLastTuya, getDeviceDetails } = require('./tuya');
 const { startElectricity, getLastElectricity } = require('./electricity');
+const { getConsumption } = require('./consumption');
 
 const app = express();
 const server = http.createServer(app);
@@ -43,6 +44,9 @@ app.get('/api/ev', (_req, res) => res.json(getLastEv()));
 app.get('/api/vacuum', (_req, res) => res.json(getLastVacuum()));
 app.get('/api/tuya', (_req, res) => res.json(getLastTuya()));
 app.get('/api/electricity', (_req, res) => res.json(getLastElectricity()));
+app.get('/api/consumption', async (_req, res, next) => {
+  try { res.json(await getConsumption()); } catch (err) { next(err); }
+});
 app.get('/api/tuya/devices/:id', async (req, res, next) => {
   try {
     const details = await getDeviceDetails(req.params.id);

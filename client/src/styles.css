@@ -210,3 +210,11 @@ button, select { font: inherit; letter-spacing: .06em; }
 .clk-price { fill: var(--accent); font-family: var(--display); font-size: 29px; font-weight: 600; filter: drop-shadow(0 0 6px rgba(34, 211, 238, .5)); }
 .clk-unit { font-family: var(--display); fill: var(--muted); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+/* Spotpris- och förbrukningsklocka bredvid varandra */
+.elpris-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 560px), 1fr)); gap: 12px 24px; align-items: stretch; }
+.elpris-row > .card { margin-top: 12px; }
+.demo-tag { margin-left: 10px; padding: 1px 8px; border: 1px solid var(--warn); color: var(--warn); font-style: normal; font-family: var(--display); font-size: .62rem; letter-spacing: .12em; text-transform: uppercase; }
+.elpris-list.hot li { border-left-color: var(--warn); background: rgba(251, 191, 36, .06); }
+.elpris-list.hot b { color: var(--warn); }
+.clk-seg.empty { opacity: .35; cursor: default; }
