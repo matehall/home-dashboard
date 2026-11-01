@@ -530,8 +530,8 @@ function TuyaPanel({ tuya, control }) {
           {others.map((d) => {
             const tone = !d.online ? "error" : d.on ? "charging" : "idle";
             const state = !d.online ? "Offline" : d.on === null ? "Online" : d.on ? "På" : "Av";
+            const power = d.power_w !== null ? `${d.power_w.toFixed(d.power_w < 100 ? 1 : 0)} W` : null;
             const chips = [];
-            if (d.power_w !== null) chips.push(`${d.power_w.toFixed(d.power_w < 100 ? 1 : 0)} W`);
             if (d.voltage_v !== null) chips.push(`${d.voltage_v.toFixed(0)} V`);
             if (d.current_a !== null) chips.push(`${d.current_a.toFixed(2)} A`);
             if (d.energy_kwh !== null) chips.push(`${d.energy_kwh.toFixed(2)} kWh`);
@@ -541,9 +541,12 @@ function TuyaPanel({ tuya, control }) {
             }
             return (
               <div key={d.id} className={`card mini ev-panel clickable ${tone}`} {...open(d.id)}>
-                <span className="ev-dot" />
-                <span className="mini-name">{d.name.trim()}</span>
-                <span className="ev-status">{state}</span>
+                <span className="mini-name" title={d.name.trim()}>{d.name.trim()}</span>
+                <div className="mini-status">
+                  <span className="ev-dot" />
+                  <span className="ev-status">{state}</span>
+                  {power && <span className="mini-power">{power}</span>}
+                </div>
                 {chips.length > 0 && <span className="meta mini-chips">{chips.join(" · ")}</span>}
               </div>
             );

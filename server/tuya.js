@@ -107,6 +107,7 @@ function fetchMockDevices() {
   return [
     { id: 'mock1', name: 'Fönsterlampa', kind: 'switch', online: true, on: lampOn, power_w: null, voltage_v: null, current_a: null, energy_kwh: null, temperature_c: null, humidity: null, battery: null },
     { id: 'mock2', name: 'Kaffebryggare', kind: 'switch', online: true, on: minute % 7 < 2, power_w: minute % 7 < 2 ? 850 : 0, voltage_v: 231.4, current_a: 3.7, energy_kwh: 12.345, temperature_c: null, humidity: null, battery: null },
+    { id: 'mock6', name: 'SiGN Outdoor Plug växthuset inne', kind: 'switch', online: true, on: true, power_w: 36.4, voltage_v: 231.4, current_a: 0.16, energy_kwh: 4.2, temperature_c: null, humidity: null, battery: null },
     { id: 'mock4', name: 'Sovrum', kind: 'climate', online: true, on: null, power_w: null, voltage_v: null, current_a: null, energy_kwh: null, temperature_c: 20.3, humidity: 63, battery: 32 },
     { id: 'mock3', name: 'Garage', kind: 'switch', online: false, on: null, power_w: null, voltage_v: null, current_a: null, energy_kwh: null, temperature_c: null, humidity: null, battery: null },
     { id: 'mock5', name: 'Verkstad', kind: 'climate', online: false, on: null, power_w: null, voltage_v: null, current_a: null, energy_kwh: null, temperature_c: null, humidity: null, battery: null },
