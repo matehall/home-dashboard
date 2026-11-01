@@ -24,14 +24,17 @@ let token = null; // { value, expiresAt }
 
 const hmac = (str) => crypto.createHmac('sha256', ACCESS_SECRET).update(str).digest('hex').toUpperCase();
 
-async function request(pathAndQuery, withToken = true) {
+async function request(pathAndQuery, withToken = true, { method = 'GET', body } = {}) {
   const t = String(Date.now());
   const nonce = crypto.randomUUID();
-  const stringToSign = ['GET', EMPTY_SHA256, '', pathAndQuery].join('\n');
+  const payload = body === undefined ? '' : JSON.stringify(body);
+  const bodyHash = payload ? crypto.createHash('sha256').update(payload).digest('hex') : EMPTY_SHA256;
+  const stringToSign = [method, bodyHash, '', pathAndQuery].join('\n');
   const sign = hmac(ACCESS_ID + (withToken ? token.value : '') + t + nonce + stringToSign);
   const headers = { client_id: ACCESS_ID, t, nonce, sign, sign_method: 'HMAC-SHA256' };
   if (withToken) headers.access_token = token.value;
-  const res = await fetch(ENDPOINT + pathAndQuery, { headers, signal: AbortSignal.timeout(15000) });
+  if (payload) headers['Content-Type'] = 'application/json';
+  const res = await fetch(ENDPOINT + pathAndQuery, { method, headers, body: payload || undefined, signal: AbortSignal.timeout(15000) });
   const json = await res.json();
   if (!json.success) throw new Error(`Tuya API ${json.code ?? res.status}: ${json.msg ?? 'okänt fel'}`);
   return json.result;
@@ -159,6 +162,20 @@ function startTuya(io) {
   setInterval(tick, POLL_MS);
 }
 
+// Slå på/av en känd enhet. Används bara av serverns egen prisstyrning (priceControl.js); det finns ingen HTTP-väg hit,
+// eftersom dashboarden saknar inloggning. Kommandokoden hämtas ur enhetens egen statuslista, aldrig från anroparen.
+const SWITCH_CODES = ['switch_1', 'switch', 'switch_led'];
+async function setSwitch(id, on) {
+  const device = lastTuya?.devices.find((d) => d.id === id);
+  if (!device) throw new Error('okänd enhet');
+  if (MOCK) { console.log(`[tuya] MOCK: skulle sätta ${device.name} ${on ? 'på' : 'av'}`); return 'mock'; }
+  const code = SWITCH_CODES.find((c) => (rawById[id]?.status || []).some((s) => s.code === c));
+  if (!code) throw new Error('enheten har ingen strömbrytarkod');
+  await ensureToken();
+  await request(`/v1.0/devices/${encodeURIComponent(id)}/commands`, true, { method: 'POST', body: { commands: [{ code, value: Boolean(on) }] } });
+  return code;
+}
+
 // Allt som finns om en enhet: normaliserade värden, Tuyas rådata (utan hemligheter) och specifikation (best effort).
 async function getDeviceDetails(id) {
   const device = lastTuya?.devices.find((d) => d.id === id); // bara kända id:n, inget fritt id i Tuya-anropet
@@ -182,4 +199,5 @@ async function getDeviceDetails(id) {
   return { device, raw: rawById[id] ?? null, specifications, probes, ts: lastTuya.ts };
 }
 
-module.exports = { startTuya, getLastTuya: () => lastTuya, getDeviceDetails };
+module.exports = {
+  setSwitch, startTuya, getLastTuya: () => lastTuya, getDeviceDetails };

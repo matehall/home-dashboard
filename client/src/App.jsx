@@ -491,7 +491,7 @@ function ConsumptionPanel({ electricity }) {
   );
 }
 
-function TuyaPanel({ tuya }) {
+function TuyaPanel({ tuya, control }) {
   const [selected, setSelected] = useState(null);
   const closeDetails = useCallback(() => setSelected(null), []);
   const open = (id) => ({
@@ -535,6 +535,10 @@ function TuyaPanel({ tuya }) {
             if (d.voltage_v !== null) chips.push(`${d.voltage_v.toFixed(0)} V`);
             if (d.current_a !== null) chips.push(`${d.current_a.toFixed(2)} A`);
             if (d.energy_kwh !== null) chips.push(`${d.energy_kwh.toFixed(2)} kWh`);
+            if (control?.enabled && control.deviceId === d.id) {
+              const price = control.price === null ? "okänt pris" : `${control.price.toFixed(1).replace(".", ",")} öre`;
+              chips.push(`Prisstyrd: på under ${control.maxOre} öre (nu ${price})`);
+            }
             return (
               <div key={d.id} className={`card mini ev-panel clickable ${tone}`} {...open(d.id)}>
                 <span className="ev-dot" />
@@ -583,6 +587,7 @@ export default function App() {
   const [vacuum, setVacuum] = useState(null);
   const [tuya, setTuya] = useState(null);
   const [electricity, setElectricity] = useState(null);
+  const [control, setControl] = useState(null);
   const [connected, setConnected] = useState(false);
   const [historySensor, setHistorySensor] = useState("utetemperatur");
   const [range, setRange] = useState("24h");
@@ -607,6 +612,7 @@ export default function App() {
     socket.on("vacuum", setVacuum);
     socket.on("tuya", setTuya);
     socket.on("electricity", setElectricity);
+    socket.on("control", setControl);
     socket.on("update", (row) => {
       setLatest((prev) => ({ ...prev, [row.sensor]: row }));
     });
@@ -802,7 +808,7 @@ export default function App() {
               <ConsumptionPanel electricity={electricity} />
             </div>
           )}
-          {group.extra === "tuya" && <TuyaPanel tuya={tuya} />}
+          {group.extra === "tuya" && <TuyaPanel tuya={tuya} control={control} />}
         </section>
       ))}
       </div>
