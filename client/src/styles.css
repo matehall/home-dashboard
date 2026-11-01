@@ -1,7 +1,7 @@
 /* HUD-tema: mörkblå panel, cyan linjer och glöd, hörnmarkeringar. Inga externa typsnitt. */
 :root {
   --bg: #03121a;
-  --panel: #05202d;
+  --panel: #06242f;
   --line: rgba(31, 209, 255, 0.3);
   --line-strong: rgba(31, 209, 255, 0.75);
   --accent: #1fd1ff;
@@ -12,6 +12,7 @@
   --bad: #f43f5e;
   --ok: #34d399;
   --clk-past: #2a5568;
+  --display: Bahnschrift, Eurostile, "Arial Narrow", system-ui, sans-serif;
   --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
   font-family: Inter, system-ui, sans-serif;
   color: var(--text);
@@ -34,7 +35,7 @@ button, select { font: inherit; }
 .sections .section.wide { grid-column: 1 / -1; }
 .header { position: relative; display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 24px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
 .header::after { content: ""; position: absolute; left: 0; bottom: -2px; width: 140px; height: 4px; background: var(--accent); box-shadow: 0 0 10px var(--accent); }
-.header h1 { margin: 0; font-size: 1.8rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: #fff; }
+.header h1 { font-family: var(--display); margin: 0; font-size: 1.8rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: #fff; }
 .header p { margin: 6px 0 0; color: var(--accent); letter-spacing: .06em; font-family: var(--mono); font-size: .8rem; }
 .header-clock { margin-left: auto; text-align: right; display: grid; font-family: var(--mono); }
 .header-clock b { font-size: 1.6rem; font-weight: 600; color: var(--text); letter-spacing: .06em; }
@@ -44,37 +45,54 @@ button, select { font: inherit; }
 .status.up { background: rgba(52, 211, 153, .1); color: var(--ok); }
 .status.down { background: rgba(244, 63, 94, .12); color: var(--bad); }
 .section { margin-top: 24px; }
-.section h2 { display: flex; align-items: center; gap: 12px; margin: 0 0 12px; font-size: 1.05rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: #fff; }
+.section h2 { font-family: var(--display); display: flex; align-items: center; gap: 12px; margin: 0 0 12px; font-size: 1.05rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: #fff; }
 .section h2::before { content: ""; width: 12px; height: 12px; background: var(--accent); clip-path: polygon(0 0, 70% 0, 100% 30%, 100% 100%, 0 100%); flex: none; }
 .section h2::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, var(--line-strong), transparent); }
 .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
 
-/* Panelram som i inspirationsbilden: snedskurna hörn (uppe till höger, nere till vänster), ljusa kantstycken och prickrad.
-   Ramen är kortets bakgrund, ::before är fyllningen inset 1.5px med samma form, ::after är dekorationerna. */
+/* Panelram som i inspirationsbilden: liten snedskärning uppe till vänster och nere till höger, trappsteg (diagonal, steg, diagonal)
+   uppe till höger och nere till vänster, tjocka ljusa kantstycken, en tunn innerlinje i foten, snedstreck och en prickrad.
+   Ramen är kortets bakgrund, ::before är fyllningen (inset 1.5px, samma form) och ::after är alla dekorationer. */
 .card, .chart {
-  --cut: 16px; --edge: #1788a8; --clip: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, var(--cut) 100%, 0 calc(100% - var(--cut)));
-  position: relative; padding: 18px 18px 24px; border: 0; border-radius: 0; background: var(--edge); clip-path: var(--clip);
+  --a: 10px; --b: 46px; --st: 12px; --d: 26px; --edge: #1788a8;
+  --clip: polygon(var(--a) 0, calc(100% - var(--b)) 0, calc(100% - var(--b) + var(--st)) var(--st), calc(100% - var(--st) - 2px) var(--st), 100% var(--d), 100% calc(100% - var(--a)), calc(100% - var(--a)) 100%, var(--b) 100%, calc(var(--b) - var(--st)) calc(100% - var(--st)), calc(var(--st) + 2px) calc(100% - var(--st)), 0 calc(100% - var(--d)), 0 var(--a));
+  position: relative; padding: 20px 20px 32px; border: 0; border-radius: 0; clip-path: var(--clip);
+  /* kantringen är ljus i trappstegshörnen (kortets bakgrund syns bara i den 1.5px breda ringen) */
+  background:
+    linear-gradient(var(--accent), var(--accent)) right 0 top 0 / calc(var(--b) + 2px) calc(var(--d) + 2px) no-repeat,
+    linear-gradient(var(--accent), var(--accent)) left 0 bottom 0 / calc(var(--b) + 2px) calc(var(--d) + 2px) no-repeat,
+    var(--edge);
 }
-.card::before, .chart::before { content: ""; position: absolute; inset: 1.5px; z-index: -1; background: var(--fill, var(--panel)); clip-path: var(--clip); }
+.card::before, .chart::before {
+  content: ""; position: absolute; inset: 1.5px; z-index: -1; clip-path: var(--clip);
+  background:
+    radial-gradient(circle, rgba(31, 209, 255, .28) 1px, transparent 1.6px) 0 0 / 40px 40px,
+    var(--fill, linear-gradient(160deg, #0b3a4b 0%, #06242f 55%, #031a23 100%));
+}
 .card::after, .chart::after {
   content: ""; position: absolute; inset: 0; pointer-events: none;
   --seg: linear-gradient(var(--accent), var(--accent));
+  --thin: linear-gradient(var(--line-strong), var(--line-strong));
   background:
-    /* tjocka kantstycken: uppe till vänster, vänster kant, höger kant, nere till höger */
-    var(--seg) 12px 0 / 72px 4px no-repeat,
-    var(--seg) 0 30px / 4px 40px no-repeat,
-    var(--seg) right 0 top 54px / 4px 28px no-repeat,
-    var(--seg) right 30px bottom 0 / 72px 4px no-repeat,
-    /* ljusa diagonaler på de snedskurna hörnen */
-    linear-gradient(45deg, transparent calc(50% - 2px), var(--accent) calc(50% - 2px), var(--accent) calc(50% + 2px), transparent calc(50% + 2px)) right top / var(--cut) var(--cut) no-repeat,
-    linear-gradient(45deg, transparent calc(50% - 2px), var(--accent) calc(50% - 2px), var(--accent) calc(50% + 2px), transparent calc(50% + 2px)) left bottom / var(--cut) var(--cut) no-repeat,
-    /* prickrad nere till vänster, skalstreck uppe till höger, snedstreck nere i mitten */
-    repeating-linear-gradient(90deg, var(--accent) 0 3px, transparent 3px 8px) 30px calc(100% - 8px) / 27px 3px no-repeat,
-    repeating-linear-gradient(90deg, var(--muted) 0 1px, transparent 1px 6px) right 34px top 6px / 42px 6px no-repeat,
-    repeating-linear-gradient(-45deg, var(--accent) 0 2px, transparent 2px 6px) right 112px bottom 6px / 26px 6px no-repeat;
+    /* ljusa tjocka kantstycken: toppen mot höger, botten mot vänster, båda trappstegen, sidokanter */
+    var(--seg) right calc(var(--b) + 6px) top 0 / 96px 4px no-repeat,
+    var(--seg) left calc(var(--b) + 6px) bottom 0 / 96px 4px no-repeat,
+    var(--seg) 0 calc(var(--a) + 14px) / 4px 38px no-repeat,
+    var(--seg) right 0 bottom calc(var(--a) + 14px) / 4px 38px no-repeat,
+    /* innerlinje i foten: vågrät med snedsteg ner mot nedre högra hörnet */
+    var(--thin) 18px calc(100% - 26px) / calc(100% - 92px) 1px no-repeat,
+    linear-gradient(45deg, transparent calc(50% - .6px), var(--line-strong) calc(50% - .6px), var(--line-strong) calc(50% + .6px), transparent calc(50% + .6px)) right 62px bottom 14px / 12px 12px no-repeat,
+    /* tagg uppe till höger: skalstreck och understrykning */
+    repeating-linear-gradient(90deg, var(--muted) 0 1px, transparent 1px 6px) right 62px top 8px / 40px 5px no-repeat,
+    var(--thin) right 58px top 22px / 70px 1px no-repeat,
+    /* snedstreck på högerkanten och nere i hörnet, prickrad (ljus, sedan dämpad) */
+    repeating-linear-gradient(-60deg, var(--accent) 0 2px, transparent 2px 5px) right 7px bottom 50px / 7px 34px no-repeat,
+    repeating-linear-gradient(-45deg, var(--accent) 0 2px, transparent 2px 6px) right 24px bottom 6px / 26px 8px no-repeat,
+    repeating-linear-gradient(90deg, var(--accent) 0 3px, transparent 3px 9px) 24px calc(100% - 12px) / 30px 3px no-repeat,
+    repeating-linear-gradient(90deg, var(--muted) 0 3px, transparent 3px 9px) 54px calc(100% - 12px) / 30px 3px no-repeat;
 }
 .card-top, .chart-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
-.label { color: #fff; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; font-size: .9rem; }
+.label { font-family: var(--display); color: #fff; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; font-size: .9rem; }
 .age, .meta { color: var(--accent); font-size: 0.78rem; letter-spacing: .06em; opacity: .85; }
 .value-row { display: flex; align-items: baseline; gap: 8px; margin-top: 8px; }
 .value { font-size: 2.2rem; font-weight: 600; font-family: var(--mono); font-variant-numeric: tabular-nums; color: var(--accent);  }
@@ -116,7 +134,7 @@ button, select { font: inherit; }
   color: var(--text) !important;
 }
 
-.ev-panel { margin-top: 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; padding: 12px 22px 18px; --accent: var(--muted); --edge: color-mix(in srgb, var(--accent) 65%, #03121a); --fill: linear-gradient(90deg, color-mix(in srgb, var(--accent) 14%, #05202d), #05202d 60%); }
+.ev-panel { margin-top: 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; padding: 16px 24px 30px; --accent: var(--muted); --edge: color-mix(in srgb, var(--accent) 65%, #03121a); --fill: linear-gradient(90deg, color-mix(in srgb, var(--accent) 14%, #06242f), #06242f 60%); }
 .ev-panel.charging { --accent: #1fd1ff; }
 .ev-panel.error { --accent: #f43f5e; }
 .ev-state { display: grid; grid-template-columns: auto 1fr; column-gap: 10px; align-items: center; min-width: 150px; }
@@ -138,7 +156,7 @@ button, select { font: inherit; }
 
 /* Kompakta enhetskort (brytare, lampor, offline) */
 .mini-grid { margin-top: 12px; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
-.card.mini { --cut: 10px; margin-top: 0; padding: 10px 14px 14px; border-radius: 0; gap: 4px 10px; flex-wrap: wrap; align-items: center; }
+.card.mini { --a: 6px; --b: 28px; --st: 8px; --d: 15px; margin-top: 0; padding: 10px 14px 14px; border-radius: 0; gap: 4px 10px; flex-wrap: wrap; align-items: center; }
 .mini-name { color: var(--text); font-weight: 600; font-size: .85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 6ch; }
 .card.mini .ev-status { font-size: .72rem; }
 .mini-chips { font-size: .75rem; margin: 0; flex-basis: 100%; white-space: normal; }
