@@ -69,6 +69,16 @@ module.exports = {
     }
   },
 
+  // Medelvärde per kvart för en sensor (t.ex. effekt i kW). Kvartar utan mätvärden saknas i resultatet.
+  getQuarterAverages(sensor, fromTs, toTs) {
+    return all(
+      `SELECT (ts / 900000) * 900000 AS ts, AVG(value) AS value, COUNT(*) AS n
+       FROM readings WHERE sensor = ? AND ts >= ? AND ts < ?
+       GROUP BY ts / 900000 ORDER BY ts`,
+      [sensor, fromTs, toTs],
+    );
+  },
+
   getPrices(area, fromTs, toTs) {
     return all(
       'SELECT ts_start AS ts, ore_per_kwh AS ore FROM prices WHERE area = ? AND ts_start >= ? AND ts_start < ? ORDER BY ts_start',

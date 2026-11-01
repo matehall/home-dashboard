@@ -20,7 +20,7 @@ const SENSOR_GROUPS = [
     extra: "ev",
   },
   {
-    title: "Elpris",
+    title: "El",
     sensors: [],
     extra: "electricity",
     wide: true,
@@ -285,30 +285,23 @@ function segmentPath(r1, a0, a1) {
   return `M${f(x0)} ${f(y0)}L${f(x1)} ${f(y1)}A${r1} ${r1} 0 0 1 ${f(x2)} ${f(y2)}L${f(x3)} ${f(y3)}A${CLK.r0} ${CLK.r0} 0 0 0 ${f(x0)} ${f(y0)}Z`;
 }
 
-function PriceClock({ data, now }) {
+// Generell kvartsklocka: data = [{ ts, v (eller null), past }], colorOf(p) ger segmentfärg. Används för spotpris och förbrukning.
+function QuarterClock({ data, now, colorOf, unit, digits = 1, label }) {
   const [hovered, setHovered] = useState(null);
   const n = data.length;
   if (!n) return null;
   const step = 360 / n;
-  const maxOre = Math.max(...data.map((p) => p.ore), 1);
-  const upcoming = data.filter((p) => !p.past).map((p) => p.ore).sort((x, y) => x - y);
-  const lowLimit = upcoming.length >= 5 ? upcoming[Math.floor(upcoming.length * 0.2)] : -Infinity;
-  const highLimit = upcoming.length >= 5 ? upcoming[Math.ceil(upcoming.length * 0.8) - 1] : Infinity;
+  const maxV = Math.max(...data.map((p) => p.v ?? 0), 0.001);
   const currentIdx = data.findIndex((p) => p.ts <= now && now < p.ts + QUARTER_MS);
   const shown = hovered ?? (currentIdx >= 0 ? data[currentIdx] : null);
-  const colorOf = (p) => {
-    if (p.past) return "var(--clk-past)";
-    if (p.ore <= lowLimit) return "var(--ok)";
-    if (p.ore >= highLimit) return "var(--warn)";
-    return "var(--accent)";
-  };
+  const fmt = (v) => (v === null || v === undefined ? "–" : v.toFixed(digits).replace(".", ","));
 
   const pointerAngle = currentIdx >= 0 ? currentIdx * step + step / 2 : null;
   const [px0, py0] = pointerAngle === null ? [0, 0] : polar(CLK.r0 - 10, pointerAngle);
   const [px1, py1] = pointerAngle === null ? [0, 0] : polar(CLK.r0 + CLK.len + 8, pointerAngle);
 
   return (
-    <svg className="price-clock" viewBox={`0 0 ${CLK.size} ${CLK.size}`} role="img" aria-label="Elpris per kvart över dygnet">
+    <svg className="price-clock" viewBox={`0 0 ${CLK.size} ${CLK.size}`} role="img" aria-label={label}>
       {[0.25, 0.5, 0.75, 1].map((f) => (
         <circle key={f} cx={CLK.c} cy={CLK.c} r={CLK.r0 + CLK.len * f} className="clk-grid" />
       ))}
@@ -323,28 +316,53 @@ function PriceClock({ data, now }) {
         return <text key={h} x={x} y={y} className="clk-hour" textAnchor="middle" dominantBaseline="central">{String(h).padStart(2, "0")}</text>;
       })}
       {data.map((p, i) => {
-        const r1 = CLK.r0 + Math.max(3, (CLK.len * Math.max(p.ore, 0)) / maxOre);
+        const empty = p.v === null || p.v === undefined;
+        const r1 = CLK.r0 + (empty ? 2 : Math.max(3, (CLK.len * Math.max(p.v, 0)) / maxV));
         const isNow = i === currentIdx;
         return (
           <path
             key={p.ts}
             d={segmentPath(r1, i * step + 0.25, (i + 1) * step - 0.25)}
-            fill={colorOf(p)}
-            className={`clk-seg${isNow ? " now" : ""}${hovered?.ts === p.ts ? " hover" : ""}`}
+            fill={empty ? "var(--clk-past)" : colorOf(p)}
+            className={`clk-seg${isNow ? " now" : ""}${hovered?.ts === p.ts ? " hover" : ""}${empty ? " empty" : ""}`}
             onMouseEnter={() => setHovered(p)}
             onMouseLeave={() => setHovered(null)}
             onClick={() => setHovered((h) => (h?.ts === p.ts ? null : p))}
           >
-            <title>{`${quarterLabel(p.ts)}  ${formatOre(p.ore)}`}</title>
+            <title>{`${quarterLabel(p.ts)}  ${empty ? "ingen data" : `${fmt(p.v)} ${unit}`}`}</title>
           </path>
         );
       })}
       {pointerAngle !== null && <line x1={px0} y1={py0} x2={px1} y2={py1} className="clk-pointer" />}
       <text x={CLK.c} y={CLK.c - 22} className="clk-time" textAnchor="middle">{shown ? quarterLabel(shown.ts) : ""}</text>
-      <text x={CLK.c} y={CLK.c + 8} className="clk-price" textAnchor="middle">{shown ? shown.ore.toFixed(1).replace(".", ",") : "–"}</text>
-      <text x={CLK.c} y={CLK.c + 28} className="clk-unit" textAnchor="middle">öre/kWh</text>
+      <text x={CLK.c} y={CLK.c + 8} className="clk-price" textAnchor="middle">{shown ? fmt(shown.v) : "–"}</text>
+      <text x={CLK.c} y={CLK.c + 28} className="clk-unit" textAnchor="middle">{unit}</text>
     </svg>
   );
+}
+
+// Spotpris: de 20 % billigaste kommande kvartarna gröna, de 20 % dyraste amber.
+function PriceClock({ data, now }) {
+  const items = data.map((p) => ({ ts: p.ts, v: p.ore, past: p.past }));
+  const upcoming = items.filter((p) => !p.past).map((p) => p.v).sort((x, y) => x - y);
+  const lowLimit = upcoming.length >= 5 ? upcoming[Math.floor(upcoming.length * 0.2)] : -Infinity;
+  const highLimit = upcoming.length >= 5 ? upcoming[Math.ceil(upcoming.length * 0.8) - 1] : Infinity;
+  const colorOf = (p) => {
+    if (p.past) return "var(--clk-past)";
+    if (p.v <= lowLimit) return "var(--ok)";
+    if (p.v >= highLimit) return "var(--warn)";
+    return "var(--accent)";
+  };
+  return <QuarterClock data={items} now={now} colorOf={colorOf} unit="öre/kWh" label="Elpris per kvart över dygnet" />;
+}
+
+// Förbrukning: de 20 % högsta kvartarna amber, resten cyan; kvartar utan värde (framtid) är tomma.
+function ConsumptionClock({ quarters, now }) {
+  const items = quarters.map((q) => ({ ts: q.ts, v: q.kw, past: q.ts + QUARTER_MS <= now }));
+  const vals = items.map((p) => p.v).filter((v) => v !== null).sort((x, y) => x - y);
+  const highLimit = vals.length >= 5 ? vals[Math.ceil(vals.length * 0.8) - 1] : Infinity;
+  const colorOf = (p) => (p.v >= highLimit ? "var(--warn)" : "var(--accent)");
+  return <QuarterClock data={items} now={now} colorOf={colorOf} unit="kW" digits={2} label="Husets förbrukning per kvart över dygnet" />;
 }
 
 function ElectricityPanel({ electricity }) {
@@ -411,6 +429,68 @@ function ElectricityPanel({ electricity }) {
   );
 }
 
+function ConsumptionPanel({ electricity }) {
+  const [data, setData] = useState(null);
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    let alive = true;
+    const load = () => fetch(`${API_BASE}/api/consumption`).then((r) => r.json()).then((d) => alive && setData(d)).catch(() => {});
+    load();
+    const id = setInterval(() => { setNow(Date.now()); load(); }, 60000);
+    return () => { alive = false; clearInterval(id); };
+  }, []);
+  if (!data) return <div className="card ev-panel"><span className="meta">Ingen förbrukningsdata än</span></div>;
+  if (!data.available) return <div className="card ev-panel"><span className="meta">Ingen elmätare ansluten än</span></div>;
+
+  const withData = data.quarters.filter((q) => q.kw !== null);
+  const currentQ = data.quarters.find((q) => q.ts <= now && now < q.ts + QUARTER_MS);
+  const kwh = withData.reduce((sum, q) => sum + q.kw * 0.25, 0);
+  const peak = withData.reduce((best, q) => (!best || q.kw > best.kw ? q : best), null);
+  // Kostnad hittills: kWh per kvart gånger spotpriset för samma kvart (öre/kWh -> kr).
+  const priceOf = new Map((electricity?.prices ?? []).map((p) => [p.ts, p.ore]));
+  const costKr = withData.reduce((sum, q) => (priceOf.has(q.ts) ? sum + (q.kw * 0.25 * priceOf.get(q.ts)) / 100 : sum), 0);
+  const hasCost = withData.some((q) => priceOf.has(q.ts));
+  const top = [...withData].sort((a, b) => b.kw - a.kw).slice(0, 4).sort((a, b) => a.ts - b.ts);
+  const kw = (v) => `${v.toFixed(2).replace(".", ",")} kW`;
+
+  return (
+    <div className="card elpris-panel">
+      <div className="card-top">
+        <div>
+          <span className="meta">Husets förbrukning nu{data.demo && <em className="demo-tag">Testdata</em>}</span>
+          <div className="elpris-now">{currentQ?.kw != null ? kw(currentQ.kw) : "–"}</div>
+        </div>
+      </div>
+      <div className="elpris-body">
+        <ConsumptionClock quarters={data.quarters} now={now} />
+        <div className="elpris-side">
+          <div className="elpris-stats">
+            <span>Idag <b>{kwh.toFixed(1).replace(".", ",")} kWh</b></span>
+            {hasCost && <span>Kostnad <b>{costKr.toFixed(2).replace(".", ",")} kr</b></span>}
+            {peak && <span>Topp <b>{kw(peak.kw)} kl. {quarterLabel(peak.ts)}</b></span>}
+          </div>
+          {top.length > 0 && (
+            <div>
+              <h4 className="modal-h">Högsta kvartarna idag</h4>
+              <ul className="elpris-list hot">
+                {top.map((q) => (
+                  <li key={q.ts}><span>{quarterLabel(q.ts)}</span><b>{kw(q.kw)}</b></li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <div className="clk-legend">
+            <span><i style={{ background: "var(--accent)" }} />Normalt</span>
+            <span><i style={{ background: "var(--warn)" }} />Högt</span>
+            <span><i style={{ background: "var(--clk-past)" }} />Ingen data</span>
+          </div>
+          {data.demo && <span className="meta">Testdata tills en elmätare (sensor {data.sensor}) rapporterar. Kostnaden är beräknad på rent spotpris.</span>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function TuyaPanel({ tuya }) {
   const [selected, setSelected] = useState(null);
   const closeDetails = useCallback(() => setSelected(null), []);
@@ -431,8 +511,7 @@ function TuyaPanel({ tuya }) {
           {climate.map((d) => (
             <div key={d.id} className="card clickable" {...open(d.id)}>
               <div className="card-top">
-                <span className="label">{d.name}</span>
-                <span className="age">{d.online ? formatAge(tuya.ts) : "offline"}</span>
+                <span className="label" title={d.name}>{d.name}</span>
               </div>
               <div className="value-row">
                 <span className="value">{d.online && d.temperature_c !== null ? d.temperature_c.toFixed(1) : "–"}</span>
@@ -441,6 +520,7 @@ function TuyaPanel({ tuya }) {
               <div className="meta">
                 {d.online ? `Fukt ${d.humidity ?? "–"} % · Batteri ${d.battery !== null ? `${d.battery} %` : BATTERY_STATE[d.battery_state] ?? "–"}` : "Ingen kontakt"}
               </div>
+              <div className="meta">{d.online ? formatAge(tuya.ts) : "offline"}</div>
             </div>
           ))}
         </div>
@@ -475,14 +555,13 @@ function SensorCard({ item }) {
   return (
     <div className="card">
       <div className="card-top">
-        <span className="label">{SENSOR_LABELS[item.sensor] ?? item.sensor}</span>
-        <span className="age">{formatAge(item.ts)}</span>
+        <span className="label" title={SENSOR_LABELS[item.sensor] ?? item.sensor}>{SENSOR_LABELS[item.sensor] ?? item.sensor}</span>
       </div>
       <div className="value-row">
         <span className="value">{Number(item.value).toFixed(1)}</span>
         <span className="unit">{item.unit}</span>
       </div>
-      <div className="meta">Uppdaterad {formatTime(item.ts)}</div>
+      <div className="meta">Uppdaterad {formatTime(item.ts)} · {formatAge(item.ts)}</div>
     </div>
   );
 }
@@ -717,7 +796,12 @@ export default function App() {
           </div>
           {group.extra === "ev" && <EvPanel ev={ev} />}
           {group.extra === "vacuum" && <VacuumPanel vacuum={vacuum} />}
-          {group.extra === "electricity" && <ElectricityPanel electricity={electricity} />}
+          {group.extra === "electricity" && (
+            <div className="elpris-row">
+              <ElectricityPanel electricity={electricity} />
+              <ConsumptionPanel electricity={electricity} />
+            </div>
+          )}
           {group.extra === "tuya" && <TuyaPanel tuya={tuya} />}
         </section>
       ))}
