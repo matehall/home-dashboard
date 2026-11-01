@@ -196,6 +196,8 @@ function VacuumPanel({ vacuum }) {
   );
 }
 
+const BATTERY_STATE = { low: "låg", middle: "medel", high: "hög" };
+
 function DeviceDetails({ id, onClose }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
@@ -282,7 +284,7 @@ function TuyaPanel({ tuya }) {
                 <span className="unit">°C</span>
               </div>
               <div className="meta">
-                {d.online ? `Fukt ${d.humidity ?? "–"} % · Batteri ${d.battery ?? "–"} %` : "Ingen kontakt"}
+                {d.online ? `Fukt ${d.humidity ?? "–"} % · Batteri ${d.battery !== null ? `${d.battery} %` : BATTERY_STATE[d.battery_state] ?? "–"}` : "Ingen kontakt"}
               </div>
             </div>
           ))}

@@ -71,17 +71,31 @@ function normalize(d) {
     current_a: num(dp.cur_current, 1000),
     energy_kwh: num(dp.add_ele, 1000),
     // Temperatur/fuktgivare (kategori wsdcg): temperatur i tiondels grader.
-    temperature_c: num(dp.va_temperature, 10),
-    humidity: num(dp.va_humidity, 1),
+    temperature_c: num(dp.va_temperature ?? dp.temp_current, 10), // wsdcg: va_temperature, tdq-registrerade givare: temp_current
+    humidity: num(dp.va_humidity ?? dp.humidity_value, 1),
     battery: num(dp.battery_percentage, 1),
+    battery_state: typeof dp.battery_state === 'string' ? dp.battery_state : null, // low/middle/high när procent saknas
   };
 }
 
 async function fetchDevices() {
   await ensureToken();
-  const list = await request(`/v1.0/users/${encodeURIComponent(UID)}/devices`);
-  rawById = Object.fromEntries((list || []).map((d) => [d.id, Object.fromEntries(Object.entries(d).filter(([k]) => !SECRET_FIELDS.includes(k)))]));
-  return (list || []).map(normalize); // alla definierade enheter, även offline
+  const list = (await request(`/v1.0/users/${encodeURIComponent(UID)}/devices`)) || [];
+  // Felregistrerade enheter (t.ex. T&H-givare som tdq) har tom status i listan men värden i shadow/properties.
+  await Promise.all(
+    list
+      .filter((d) => d.online && !(d.status || []).length)
+      .map(async (d) => {
+        try {
+          const r = await request(`/v2.0/cloud/thing/${encodeURIComponent(d.id)}/shadow/properties`);
+          d.status = (r.properties || []).map((p) => ({ code: p.code, value: p.value }));
+        } catch (err) {
+          // behåll tom status; enheten visas utan värden
+        }
+      }),
+  );
+  rawById = Object.fromEntries(list.map((d) => [d.id, Object.fromEntries(Object.entries(d).filter(([k]) => !SECRET_FIELDS.includes(k)))]));
+  return list.map(normalize); // alla definierade enheter, även offline
 }
 
 function fetchMockDevices() {
@@ -157,23 +171,14 @@ async function getDeviceDetails(id) {
   } catch (err) {
     specifications = { error: err.message };
   }
-  // Diagnos: vilka API:er ger värden för enheter som saknar status i listan? Varje anrop är best effort.
-  const q = encodeURIComponent(id);
-  const now = Date.now();
-  const logQuery = new URLSearchParams({ end_time: now, query_type: 1, size: 20, start_time: now - 24 * 3600 * 1000, type: 7 });
-  logQuery.sort(); // Tuya kräver sorterade parametrar i signeringen
-  const probe = async (path) => {
-    try {
-      return await request(path);
-    } catch (err) {
-      return { error: err.message };
-    }
-  };
-  const probes = {
-    status: await probe(`/v1.0/devices/${q}/status`),
-    shadow_properties: await probe(`/v2.0/cloud/thing/${q}/shadow/properties`),
-    logs_24h: await probe(`/v1.0/devices/${q}/logs?${logQuery}`),
-  };
+  // Shadow-egenskaper visar alla datapunkter (även icke-standard). Best effort.
+  let shadow;
+  try {
+    shadow = await request(`/v2.0/cloud/thing/${encodeURIComponent(id)}/shadow/properties`);
+  } catch (err) {
+    shadow = { error: err.message };
+  }
+  const probes = { shadow_properties: shadow };
   return { device, raw: rawById[id] ?? null, specifications, probes, ts: lastTuya.ts };
 }
 
