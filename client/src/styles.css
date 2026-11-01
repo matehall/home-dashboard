@@ -1,4 +1,7 @@
-/* Oxanium (SIL OFL, se public/fonts/OFL.txt) är självhostad så att dashboarden inte beror på internet. */
+/* Orbitron och Oxanium (SIL OFL, se public/fonts/OFL*.txt) är självhostad så att dashboarden inte beror på internet. */
+@font-face { font-family: "Orbitron"; font-weight: 500; font-style: normal; font-display: swap; src: url("/fonts/orbitron-500.woff2") format("woff2"); }
+@font-face { font-family: "Orbitron"; font-weight: 700; font-style: normal; font-display: swap; src: url("/fonts/orbitron-700.woff2") format("woff2"); }
+@font-face { font-family: "Orbitron"; font-weight: 800; font-style: normal; font-display: swap; src: url("/fonts/orbitron-800.woff2") format("woff2"); }
 @font-face { font-family: "Oxanium"; font-weight: 500; font-style: normal; font-display: swap; src: url("/fonts/oxanium-500.woff2") format("woff2"); }
 @font-face { font-family: "Oxanium"; font-weight: 700; font-style: normal; font-display: swap; src: url("/fonts/oxanium-700.woff2") format("woff2"); }
 @font-face { font-family: "Oxanium"; font-weight: 800; font-style: normal; font-display: swap; src: url("/fonts/oxanium-800.woff2") format("woff2"); }
@@ -16,7 +19,7 @@
   --bad: #f43f5e;
   --ok: #34d399;
   --clk-past: #2a5568;
-  --display: "Oxanium", Bahnschrift, Eurostile, system-ui, sans-serif;
+  --display: "Orbitron", "Oxanium", Bahnschrift, Eurostile, system-ui, sans-serif;
   --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
   font-family: Inter, system-ui, sans-serif;
   color: var(--text);
@@ -39,18 +42,18 @@ button, select { font: inherit; letter-spacing: .06em; }
 .sections .section.wide { grid-column: 1 / -1; }
 .header { position: relative; display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 24px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
 .header::after { content: ""; position: absolute; left: 0; bottom: -2px; width: 140px; height: 4px; background: var(--accent); box-shadow: 0 0 10px var(--accent); }
-.header h1 { font-family: var(--display); margin: 0; font-size: 1.8rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: #fff; }
+.header h1 { font-family: var(--display); margin: 0; font-size: 1.45rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: #fff; }
 .header p { margin: 6px 0 0; color: var(--accent); letter-spacing: .06em; font-family: var(--mono); font-size: .8rem; }
 .header-clock { margin-left: auto; text-align: right; display: grid; font-family: var(--mono); }
 .header-clock b { font-size: 1.6rem; font-weight: 600; color: var(--text); letter-spacing: .06em; }
 .header-clock span { color: var(--muted); font-size: .75rem; text-transform: uppercase; letter-spacing: .1em; }
 .status, button, select, .modal-h, .chip, .ev-status, .mini-name { font-family: var(--display); }
-.status { padding: 8px 14px; border: 1px solid currentColor; font-weight: 600; font-size: .8rem; letter-spacing: .1em; text-transform: uppercase; border-radius: 2px; }
+.status { padding: 8px 14px; border: 1px solid currentColor; font-weight: 600; font-size: .7rem; letter-spacing: .1em; text-transform: uppercase; border-radius: 2px; }
 .status::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 8px; background: currentColor; box-shadow: 0 0 8px currentColor; }
 .status.up { background: rgba(52, 211, 153, .1); color: var(--ok); }
 .status.down { background: rgba(244, 63, 94, .12); color: var(--bad); }
 .section { margin-top: 24px; }
-.section h2 { font-family: var(--display); display: flex; align-items: center; gap: 12px; margin: 0 0 12px; font-size: 1.05rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: #fff; }
+.section h2 { font-family: var(--display); display: flex; align-items: center; gap: 12px; margin: 0 0 12px; font-size: .92rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: #fff; }
 .section h2::before { content: ""; width: 12px; height: 12px; background: var(--accent); clip-path: polygon(0 0, 70% 0, 100% 30%, 100% 100%, 0 100%); flex: none; }
 .section h2::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, var(--line-strong), transparent); }
 .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
@@ -97,15 +100,15 @@ button, select { font: inherit; letter-spacing: .06em; }
     repeating-linear-gradient(90deg, var(--muted) 0 3px, transparent 3px 9px) 54px calc(100% - 12px) / 30px 3px no-repeat;
 }
 .card-top, .chart-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
-.label { font-family: var(--display); color: #fff; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; font-size: .9rem; }
+.label { font-family: var(--display); color: #fff; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; font-size: .78rem; }
 .age, .meta { color: var(--accent); font-size: 0.78rem; letter-spacing: .06em; opacity: .85; }
 .value-row { display: flex; align-items: baseline; gap: 8px; margin-top: 8px; }
-.value { font-size: 2.3rem; font-weight: 700; font-family: var(--display); font-variant-numeric: tabular-nums; color: var(--accent);  }
+.value { font-size: 1.9rem; font-weight: 700; font-family: var(--display); font-variant-numeric: tabular-nums; color: var(--accent);  }
 .unit { color: var(--muted); }
 .meta { margin-top: 4px; }
 .chart { margin-top: 12px; cursor: grab; }
 .chart:active { cursor: grabbing; }
-.chart-head select, .range-buttons button, .chart-type-buttons button, .elpris-days button { border: 1px solid var(--line); background: rgba(5, 11, 20, .8); color: var(--text); border-radius: 2px; padding: 7px 12px; cursor: pointer; font-size: 0.85rem; letter-spacing: .04em; }
+.chart-head select, .range-buttons button, .chart-type-buttons button, .elpris-days button { border: 1px solid var(--line); background: rgba(5, 11, 20, .8); color: var(--text); border-radius: 2px; padding: 7px 12px; cursor: pointer; font-size: 0.72rem; letter-spacing: .06em; }
 .chart-head select:hover, .range-buttons button:hover, .chart-type-buttons button:hover, .elpris-days button:hover:not(:disabled) { border-color: var(--line-strong); }
 .range-buttons, .chart-type-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
 .range-buttons button.active, .chart-type-buttons button.active, .elpris-days button.active { background: rgba(34, 211, 238, .18); border-color: var(--accent); color: var(--accent); box-shadow: 0 0 10px rgba(34, 211, 238, .3); }
@@ -180,7 +183,7 @@ button, select { font: inherit; letter-spacing: .06em; }
 
 /* Prisklockan */
 .elpris-panel { margin-top: 12px; }
-.elpris-now { font-size: 1.7rem; font-weight: 700; font-family: var(--display); color: var(--accent); text-shadow: 0 0 12px rgba(34, 211, 238, .4); }
+.elpris-now { font-size: 1.45rem; font-weight: 700; font-family: var(--display); color: var(--accent); text-shadow: 0 0 12px rgba(34, 211, 238, .4); }
 .elpris-days { display: flex; gap: 6px; }
 .elpris-days button:disabled { opacity: .35; cursor: default; }
 .elpris-body { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 32px; margin-top: 8px; }
@@ -202,6 +205,6 @@ button, select { font: inherit; letter-spacing: .06em; }
 .clk-seg.now { opacity: 1; filter: drop-shadow(0 0 5px currentColor) brightness(1.4); stroke: #fff; stroke-width: 1; }
 .clk-pointer { stroke: #fff; stroke-width: 2; stroke-linecap: round; filter: drop-shadow(0 0 4px var(--accent)); pointer-events: none; }
 .clk-time { fill: var(--muted); font-family: var(--mono); font-size: 14px; letter-spacing: .1em; }
-.clk-price { fill: var(--accent); font-family: var(--display); font-size: 36px; font-weight: 600; filter: drop-shadow(0 0 6px rgba(34, 211, 238, .5)); }
+.clk-price { fill: var(--accent); font-family: var(--display); font-size: 29px; font-weight: 600; filter: drop-shadow(0 0 6px rgba(34, 211, 238, .5)); }
 .clk-unit { font-family: var(--display); fill: var(--muted); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
