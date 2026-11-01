@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { io } from "socket.io-client";
-import { LineChart, Line, BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 
 const API_BASE = "";
 const SOCKET_URL = typeof window !== "undefined" ? window.location.origin : "http://192.168.1.8:3000";
@@ -270,20 +270,101 @@ const quarterLabel = (ts) =>
   new Intl.DateTimeFormat("sv-SE", { timeZone: PRICE_TZ, hour: "2-digit", minute: "2-digit" }).format(new Date(ts));
 const formatOre = (v) => (v === null || v === undefined ? "–" : `${v.toFixed(1).replace(".", ",")} öre/kWh`);
 
+// Prisklockan: ett dygn som en ring, midnatt överst och medsols. Varje kvart är ett segment vars längd är priset.
+const CLK = { size: 340, c: 170, r0: 80, len: 60 };
+function polar(r, deg) {
+  const a = ((deg - 90) * Math.PI) / 180;
+  return [CLK.c + r * Math.cos(a), CLK.c + r * Math.sin(a)];
+}
+function segmentPath(r1, a0, a1) {
+  const [x0, y0] = polar(CLK.r0, a0);
+  const [x1, y1] = polar(r1, a0);
+  const [x2, y2] = polar(r1, a1);
+  const [x3, y3] = polar(CLK.r0, a1);
+  const f = (n) => n.toFixed(2);
+  return `M${f(x0)} ${f(y0)}L${f(x1)} ${f(y1)}A${r1} ${r1} 0 0 1 ${f(x2)} ${f(y2)}L${f(x3)} ${f(y3)}A${CLK.r0} ${CLK.r0} 0 0 0 ${f(x0)} ${f(y0)}Z`;
+}
+
+function PriceClock({ data, now }) {
+  const [hovered, setHovered] = useState(null);
+  const n = data.length;
+  if (!n) return null;
+  const step = 360 / n;
+  const maxOre = Math.max(...data.map((p) => p.ore), 1);
+  const upcoming = data.filter((p) => !p.past).map((p) => p.ore).sort((x, y) => x - y);
+  const lowLimit = upcoming.length >= 5 ? upcoming[Math.floor(upcoming.length * 0.2)] : -Infinity;
+  const highLimit = upcoming.length >= 5 ? upcoming[Math.ceil(upcoming.length * 0.8) - 1] : Infinity;
+  const currentIdx = data.findIndex((p) => p.ts <= now && now < p.ts + QUARTER_MS);
+  const shown = hovered ?? (currentIdx >= 0 ? data[currentIdx] : null);
+  const colorOf = (p) => {
+    if (p.past) return "var(--clk-past)";
+    if (p.ore <= lowLimit) return "var(--ok)";
+    if (p.ore >= highLimit) return "var(--warn)";
+    return "var(--accent)";
+  };
+
+  const pointerAngle = currentIdx >= 0 ? currentIdx * step + step / 2 : null;
+  const [px0, py0] = pointerAngle === null ? [0, 0] : polar(CLK.r0 - 10, pointerAngle);
+  const [px1, py1] = pointerAngle === null ? [0, 0] : polar(CLK.r0 + CLK.len + 8, pointerAngle);
+
+  return (
+    <svg className="price-clock" viewBox={`0 0 ${CLK.size} ${CLK.size}`} role="img" aria-label="Elpris per kvart över dygnet">
+      {[0.25, 0.5, 0.75, 1].map((f) => (
+        <circle key={f} cx={CLK.c} cy={CLK.c} r={CLK.r0 + CLK.len * f} className="clk-grid" />
+      ))}
+      <circle cx={CLK.c} cy={CLK.c} r={CLK.r0 - 4} className="clk-core" />
+      {Array.from({ length: 24 }, (_, h) => {
+        const [x0, y0] = polar(CLK.r0 + CLK.len + 3, h * 15);
+        const [x1, y1] = polar(CLK.r0 + CLK.len + (h % 3 === 0 ? 10 : 6), h * 15);
+        return <line key={h} x1={x0} y1={y0} x2={x1} y2={y1} className="clk-tick" />;
+      })}
+      {[0, 3, 6, 9, 12, 15, 18, 21].map((h) => {
+        const [x, y] = polar(CLK.r0 + CLK.len + 22, h * 15);
+        return <text key={h} x={x} y={y} className="clk-hour" textAnchor="middle" dominantBaseline="central">{String(h).padStart(2, "0")}</text>;
+      })}
+      {data.map((p, i) => {
+        const r1 = CLK.r0 + Math.max(3, (CLK.len * Math.max(p.ore, 0)) / maxOre);
+        const isNow = i === currentIdx;
+        return (
+          <path
+            key={p.ts}
+            d={segmentPath(r1, i * step + 0.25, (i + 1) * step - 0.25)}
+            fill={colorOf(p)}
+            className={`clk-seg${isNow ? " now" : ""}${hovered?.ts === p.ts ? " hover" : ""}`}
+            onMouseEnter={() => setHovered(p)}
+            onMouseLeave={() => setHovered(null)}
+            onClick={() => setHovered((h) => (h?.ts === p.ts ? null : p))}
+          >
+            <title>{`${quarterLabel(p.ts)}  ${formatOre(p.ore)}`}</title>
+          </path>
+        );
+      })}
+      {pointerAngle !== null && <line x1={px0} y1={py0} x2={px1} y2={py1} className="clk-pointer" />}
+      <text x={CLK.c} y={CLK.c - 22} className="clk-time" textAnchor="middle">{shown ? quarterLabel(shown.ts) : ""}</text>
+      <text x={CLK.c} y={CLK.c + 8} className="clk-price" textAnchor="middle">{shown ? shown.ore.toFixed(1).replace(".", ",") : "–"}</text>
+      <text x={CLK.c} y={CLK.c + 28} className="clk-unit" textAnchor="middle">öre/kWh</text>
+    </svg>
+  );
+}
+
 function ElectricityPanel({ electricity }) {
   const [day, setDay] = useState("today");
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30000); // så passerade kvartar och visaren följer klockan
+    return () => clearInterval(id);
+  }, []);
   if (!electricity) return <div className="card ev-panel"><span className="meta">Inga elpriser än</span></div>;
 
-  const now = Date.now();
   const todayKey = dayKey(now);
   const tomorrowKey = dayKey(now + 24 * 3600 * 1000);
   const hasTomorrow = electricity.prices.some((p) => dayKey(p.ts) === tomorrowKey);
   const shownKey = day === "tomorrow" && hasTomorrow ? tomorrowKey : todayKey;
   const data = electricity.prices
     .filter((p) => dayKey(p.ts) === shownKey)
-    .map((p) => ({ ...p, label: quarterLabel(p.ts), past: p.ts + QUARTER_MS <= now }));
+    .map((p) => ({ ...p, past: p.ts + QUARTER_MS <= now }));
   const upcoming = electricity.prices.filter((p) => p.ts + QUARTER_MS > now);
-  const cheapest = upcoming.length ? upcoming.reduce((a, b) => (b.ore < a.ore ? b : a)) : null;
+  const cheapest = [...upcoming].sort((a, b) => a.ore - b.ore).slice(0, 4).sort((a, b) => a.ts - b.ts);
   const ores = data.map((p) => p.ore);
   const current = electricity.prices.find((p) => p.ts <= now && now < p.ts + QUARTER_MS)?.ore ?? null;
 
@@ -294,33 +375,37 @@ function ElectricityPanel({ electricity }) {
           <span className="meta">Nu ({electricity.area}, rent spotpris)</span>
           <div className="elpris-now">{formatOre(current)}</div>
         </div>
-        <div className="elpris-stats">
-          {ores.length > 0 && <span>Lägst {formatOre(Math.min(...ores))}</span>}
-          {ores.length > 0 && <span>Högst {formatOre(Math.max(...ores))}</span>}
-          {cheapest && <span>Billigast framåt {quarterLabel(cheapest.ts)} ({formatOre(cheapest.ore)})</span>}
-        </div>
         <div className="elpris-days">
           <button type="button" className={shownKey === todayKey ? "active" : ""} onClick={() => setDay("today")}>Idag</button>
           <button type="button" className={shownKey === tomorrowKey ? "active" : ""} disabled={!hasTomorrow} onClick={() => setDay("tomorrow")}>Imorgon</button>
         </div>
       </div>
-      <div className="elpris-chart">
-        <ResponsiveContainer width="100%" height={240}>
-          <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} barCategoryGap={1}>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.15)" vertical={false} />
-            <XAxis dataKey="label" interval={4} tick={{ fill: "#94a3b8", fontSize: 11 }} />
-            <YAxis unit=" öre" width={64} tick={{ fill: "#94a3b8", fontSize: 11 }} />
-            <Tooltip
-              cursor={{ fill: "rgba(148,163,184,0.1)" }}
-              contentStyle={{ background: "#0f172a", border: "1px solid rgba(148,163,184,0.3)", borderRadius: 8 }}
-              formatter={(v) => [formatOre(v), "Pris"]}
-              labelFormatter={(l) => `Kl. ${l}`}
-            />
-            <Bar dataKey="ore" isAnimationActive={false}>
-              {data.map((p) => <Cell key={p.ts} fill={p.past ? "#64748b" : "#8b5cf6"} />)}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
+      <div className="elpris-body">
+        <PriceClock data={data} now={now} />
+        <div className="elpris-side">
+          {ores.length > 0 && (
+            <div className="elpris-stats">
+              <span>Lägst <b>{formatOre(Math.min(...ores))}</b></span>
+              <span>Högst <b>{formatOre(Math.max(...ores))}</b></span>
+            </div>
+          )}
+          {cheapest.length > 0 && (
+            <div>
+              <h4 className="modal-h">Billigaste kvartarna framåt</h4>
+              <ul className="elpris-list">
+                {cheapest.map((p) => (
+                  <li key={p.ts}><span>{dayKey(p.ts) === todayKey ? "" : "imorgon "}{quarterLabel(p.ts)}</span><b>{formatOre(p.ore)}</b></li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <div className="clk-legend">
+            <span><i style={{ background: "var(--clk-past)" }} />Passerat</span>
+            <span><i style={{ background: "var(--ok)" }} />Billigt</span>
+            <span><i style={{ background: "var(--accent)" }} />Normalt</span>
+            <span><i style={{ background: "var(--warn)" }} />Dyrt</span>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -400,6 +485,17 @@ function SensorCard({ item }) {
       <div className="meta">Uppdaterad {formatTime(item.ts)}</div>
     </div>
   );
+}
+
+function HeaderClock() {
+  const [t, setT] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setT(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const time = new Intl.DateTimeFormat("sv-SE", { timeZone: PRICE_TZ, hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(t);
+  const date = new Intl.DateTimeFormat("sv-SE", { timeZone: PRICE_TZ, weekday: "long", day: "numeric", month: "long" }).format(t);
+  return <div className="header-clock"><b>{time}</b><span>{date}</span></div>;
 }
 
 export default function App() {
@@ -606,6 +702,7 @@ export default function App() {
           <h1>Home Dashboard</h1>
           <p>MQTT → SQLite → historik + live</p>
         </div>
+        <HeaderClock />
         <div className={`status ${connected ? "up" : "down"}`}>{connected ? "Ansluten" : "Frånkopplad"}</div>
       </header>
 
@@ -659,7 +756,7 @@ export default function App() {
               disabled={!zoomDomain && timeOffsetMs <= 0}
               style={{
                 border: "1px solid rgba(148,163,184,.3)",
-                background: "#4f46e5",
+                background: "#0e7490",
                 color: "#e5e7eb",
                 borderRadius: "10px",
                 padding: "8px 16px",
@@ -694,7 +791,7 @@ export default function App() {
                 <YAxis />
                 <Tooltip content={<CustomTooltip />} labelFormatter={(value) => formatChartLabel(value, range)} />
                 <Legend />
-                <Line type="monotone" dataKey="value" stroke="#94a3b8" dot={false} strokeWidth={1} name="Värde" />
+                <Line type="monotone" dataKey="value" stroke="#6b8aa8" dot={false} strokeWidth={1} name="Värde" />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -714,7 +811,7 @@ export default function App() {
                 onClick={() => setChartType("line")}
                 style={{
                   border: "1px solid rgba(148,163,184,.3)",
-                  background: chartType === "line" ? "#4f46e5" : "#111827",
+                  background: chartType === "line" ? "#0e7490" : "#111827",
                   color: "#e5e7eb",
                   borderRadius: "10px",
                   padding: "8px 12px",
@@ -729,7 +826,7 @@ export default function App() {
                 onClick={() => setChartType("bar")}
                 style={{
                   border: "1px solid rgba(148,163,184,.3)",
-                  background: chartType === "bar" ? "#4f46e5" : "#111827",
+                  background: chartType === "bar" ? "#0e7490" : "#111827",
                   color: "#e5e7eb",
                   borderRadius: "10px",
                   padding: "8px 12px",
@@ -754,7 +851,7 @@ export default function App() {
                   <YAxis />
                   <Tooltip content={<CustomTooltip />} labelFormatter={(value) => formatChartLabel(value, range)} />
                   <Legend />
-                  <Bar dataKey="value" fill="#4f46e5" name={historySensor === "regn" ? "Summa" : "Medel"} />
+                  <Bar dataKey="value" fill="#22d3ee" name={historySensor === "regn" ? "Summa" : "Medel"} />
                 </BarChart>
               ) : (
                 <LineChart data={displayedAggData}>
@@ -769,7 +866,7 @@ export default function App() {
                   <YAxis />
                   <Tooltip content={<CustomTooltip />} labelFormatter={(value) => formatChartLabel(value, range)} />
                   <Legend />
-                  <Line type="monotone" dataKey="value" stroke="#4f46e5" dot={false} strokeWidth={2} name={historySensor === "regn" ? "Summa" : "Medel"} />
+                  <Line type="monotone" dataKey="value" stroke="#22d3ee" dot={false} strokeWidth={2} name={historySensor === "regn" ? "Summa" : "Medel"} />
                 </LineChart>
               )}
             </ResponsiveContainer>
