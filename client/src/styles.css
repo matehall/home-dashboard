@@ -100,6 +100,8 @@ button, select { font: inherit; letter-spacing: .06em; }
     repeating-linear-gradient(90deg, var(--muted) 0 3px, transparent 3px 9px) 54px calc(100% - 12px) / 30px 3px no-repeat;
 }
 .card-top, .chart-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.grid .card-top { flex-wrap: nowrap; }
+.grid .card-top .label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .label { font-family: var(--display); color: #fff; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; font-size: .78rem; }
 .age, .meta { color: var(--accent); font-size: 0.78rem; letter-spacing: .06em; opacity: .85; }
 .value-row { display: flex; align-items: baseline; gap: 8px; margin-top: 8px; }

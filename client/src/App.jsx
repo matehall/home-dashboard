@@ -431,8 +431,7 @@ function TuyaPanel({ tuya }) {
           {climate.map((d) => (
             <div key={d.id} className="card clickable" {...open(d.id)}>
               <div className="card-top">
-                <span className="label">{d.name}</span>
-                <span className="age">{d.online ? formatAge(tuya.ts) : "offline"}</span>
+                <span className="label" title={d.name}>{d.name}</span>
               </div>
               <div className="value-row">
                 <span className="value">{d.online && d.temperature_c !== null ? d.temperature_c.toFixed(1) : "–"}</span>
@@ -441,6 +440,7 @@ function TuyaPanel({ tuya }) {
               <div className="meta">
                 {d.online ? `Fukt ${d.humidity ?? "–"} % · Batteri ${d.battery !== null ? `${d.battery} %` : BATTERY_STATE[d.battery_state] ?? "–"}` : "Ingen kontakt"}
               </div>
+              <div className="meta">{d.online ? formatAge(tuya.ts) : "offline"}</div>
             </div>
           ))}
         </div>
@@ -475,14 +475,13 @@ function SensorCard({ item }) {
   return (
     <div className="card">
       <div className="card-top">
-        <span className="label">{SENSOR_LABELS[item.sensor] ?? item.sensor}</span>
-        <span className="age">{formatAge(item.ts)}</span>
+        <span className="label" title={SENSOR_LABELS[item.sensor] ?? item.sensor}>{SENSOR_LABELS[item.sensor] ?? item.sensor}</span>
       </div>
       <div className="value-row">
         <span className="value">{Number(item.value).toFixed(1)}</span>
         <span className="unit">{item.unit}</span>
       </div>
-      <div className="meta">Uppdaterad {formatTime(item.ts)}</div>
+      <div className="meta">Uppdaterad {formatTime(item.ts)} · {formatAge(item.ts)}</div>
     </div>
   );
 }
