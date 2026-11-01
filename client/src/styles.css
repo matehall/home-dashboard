@@ -81,7 +81,7 @@ button, select { font: inherit; }
 
 /* Kompakta enhetskort (brytare, lampor, offline) */
 .mini-grid { margin-top: 12px; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
-.card.mini { margin-top: 0; padding: 8px 12px; border-radius: 12px; gap: 4px 10px; flex-wrap: nowrap; }
-.mini-name { color: #cbd5e1; font-weight: 600; font-size: .85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
+.card.mini { margin-top: 0; padding: 8px 12px; border-radius: 12px; gap: 4px 10px; flex-wrap: wrap; align-items: center; }
+.mini-name { color: #cbd5e1; font-weight: 600; font-size: .85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 6ch; }
 .card.mini .ev-status { font-size: .72rem; }
-.mini-chips { font-size: .75rem; margin: 0; white-space: nowrap; }
+.mini-chips { font-size: .75rem; margin: 0; flex-basis: 100%; white-space: normal; }
