@@ -85,3 +85,15 @@ button, select { font: inherit; }
 .mini-name { color: #cbd5e1; font-weight: 600; font-size: .85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 6ch; }
 .card.mini .ev-status { font-size: .72rem; }
 .mini-chips { font-size: .75rem; margin: 0; flex-basis: 100%; white-space: normal; }
+
+/* Enhetsdetaljer (klick på Tuya-enhet) */
+.clickable { cursor: pointer; }
+.clickable:hover, .clickable:focus-visible { border-color: rgba(148, 163, 184, 0.55); outline: none; }
+.modal-backdrop { position: fixed; inset: 0; background: rgba(2, 6, 23, .7); display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 50; }
+.modal { width: min(640px, 100%); max-height: 85vh; overflow-y: auto; background: #0f172a; }
+.modal-close { background: none; border: 0; color: #94a3b8; font-size: 1.6rem; line-height: 1; cursor: pointer; }
+.modal-h { margin: 16px 0 6px; font-size: .8rem; color: #94a3b8; text-transform: uppercase; letter-spacing: .05em; }
+.kv { width: 100%; border-collapse: collapse; font-size: .85rem; }
+.kv th { text-align: left; color: #94a3b8; font-weight: 500; padding: 3px 12px 3px 0; white-space: nowrap; }
+.kv td { color: #e2e8f0; word-break: break-all; }
+.raw { margin: 0; padding: 10px; background: rgba(2, 6, 23, .6); border-radius: 8px; font-size: .75rem; color: #cbd5e1; overflow-x: auto; }

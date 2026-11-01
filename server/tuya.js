@@ -16,6 +16,8 @@ const STORE_EVERY_MS = 10 * 60 * 1000;
 const EMPTY_SHA256 = crypto.createHash('sha256').update('').digest('hex');
 
 let lastTuya = null;
+let rawById = {}; // rådata per enhet för detaljrutan; skickas aldrig via socket
+const SECRET_FIELDS = ['local_key', 'lat', 'lon']; // enhetens lokala nyckel och position ska aldrig lämna servern
 const lastStored = {};
 let token = null; // { value, expiresAt }
 
@@ -41,6 +43,15 @@ async function ensureToken() {
 }
 
 // Skala enligt Tuyas standardkoder; kan skilja mellan enheter, verifiera mot Smart Life-appen.
+// Enhetstyp avgörs av Tuyas `category` (finns även för offline-enheter som saknar status), med statuskoder som reserv.
+// Nya temp/fuktgivare hamnar då rätt direkt, utan ändring i klienten.
+const CLIMATE_CATEGORY = /^wsd/; // wsdcg m.fl. (temperatur/fuktgivare)
+const CLIMATE_CODES = ['va_temperature', 'va_humidity', 'temp_current', 'humidity_value'];
+function kindOf(d, dp) {
+  if (CLIMATE_CATEGORY.test(d.category || '')) return 'climate';
+  return CLIMATE_CODES.some((c) => c in dp) ? 'climate' : 'switch';
+}
+
 function normalize(d) {
   const dp = Object.fromEntries((d.status || []).map((s) => [s.code, s.value]));
   const sw = dp.switch_1 ?? dp.switch ?? dp.switch_led;
@@ -48,6 +59,7 @@ function normalize(d) {
   return {
     id: d.id,
     name: d.name,
+    kind: kindOf(d, dp),
     online: Boolean(d.online),
     on: typeof sw === 'boolean' ? sw : null,
     power_w: num(dp.cur_power, 10),
@@ -64,6 +76,7 @@ function normalize(d) {
 async function fetchDevices() {
   await ensureToken();
   const list = await request(`/v1.0/users/${encodeURIComponent(UID)}/devices`);
+  rawById = Object.fromEntries((list || []).map((d) => [d.id, Object.fromEntries(Object.entries(d).filter(([k]) => !SECRET_FIELDS.includes(k)))]));
   return (list || []).map(normalize); // alla definierade enheter, även offline
 }
 
@@ -71,10 +84,11 @@ function fetchMockDevices() {
   const minute = Math.floor(Date.now() / 60000);
   const lampOn = minute % 10 < 6;
   return [
-    { id: 'mock1', name: 'Fönsterlampa', online: true, on: lampOn, power_w: null, voltage_v: null, current_a: null, energy_kwh: null, temperature_c: null, humidity: null, battery: null },
-    { id: 'mock2', name: 'Kaffebryggare', online: true, on: minute % 7 < 2, power_w: minute % 7 < 2 ? 850 : 0, voltage_v: 231.4, current_a: 3.7, energy_kwh: 12.345, temperature_c: null, humidity: null, battery: null },
-    { id: 'mock4', name: 'Sovrum', online: true, on: null, power_w: null, voltage_v: null, current_a: null, energy_kwh: null, temperature_c: 20.3, humidity: 63, battery: 32 },
-    { id: 'mock3', name: 'Garage', online: false, on: null, power_w: null, voltage_v: null, current_a: null, energy_kwh: null, temperature_c: null, humidity: null, battery: null },
+    { id: 'mock1', name: 'Fönsterlampa', kind: 'switch', online: true, on: lampOn, power_w: null, voltage_v: null, current_a: null, energy_kwh: null, temperature_c: null, humidity: null, battery: null },
+    { id: 'mock2', name: 'Kaffebryggare', kind: 'switch', online: true, on: minute % 7 < 2, power_w: minute % 7 < 2 ? 850 : 0, voltage_v: 231.4, current_a: 3.7, energy_kwh: 12.345, temperature_c: null, humidity: null, battery: null },
+    { id: 'mock4', name: 'Sovrum', kind: 'climate', online: true, on: null, power_w: null, voltage_v: null, current_a: null, energy_kwh: null, temperature_c: 20.3, humidity: 63, battery: 32 },
+    { id: 'mock3', name: 'Garage', kind: 'switch', online: false, on: null, power_w: null, voltage_v: null, current_a: null, energy_kwh: null, temperature_c: null, humidity: null, battery: null },
+    { id: 'mock5', name: 'Verkstad', kind: 'climate', online: false, on: null, power_w: null, voltage_v: null, current_a: null, energy_kwh: null, temperature_c: null, humidity: null, battery: null },
   ];
 }
 
@@ -127,4 +141,19 @@ function startTuya(io) {
   setInterval(tick, POLL_MS);
 }
 
-module.exports = { startTuya, getLastTuya: () => lastTuya };
+// Allt som finns om en enhet: normaliserade värden, Tuyas rådata (utan hemligheter) och specifikation (best effort).
+async function getDeviceDetails(id) {
+  const device = lastTuya?.devices.find((d) => d.id === id); // bara kända id:n, inget fritt id i Tuya-anropet
+  if (!device) return null;
+  if (MOCK) return { device, raw: { mock: true, id, name: device.name }, specifications: null, ts: lastTuya.ts };
+  let specifications;
+  try {
+    await ensureToken();
+    specifications = await request(`/v1.0/devices/${encodeURIComponent(id)}/specifications`);
+  } catch (err) {
+    specifications = { error: err.message };
+  }
+  return { device, raw: rawById[id] ?? null, specifications, ts: lastTuya.ts };
+}
+
+module.exports = { startTuya, getLastTuya: () => lastTuya, getDeviceDetails };

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 
@@ -196,16 +196,77 @@ function VacuumPanel({ vacuum }) {
   );
 }
 
+function DeviceDetails({ id, onClose }) {
+  const [data, setData] = useState(null);
+  const [error, setError] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    fetch(`${API_BASE}/api/tuya/devices/${encodeURIComponent(id)}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then((j) => alive && setData(j))
+      .catch((e) => alive && setError(e.message));
+    const onKey = (e) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => { alive = false; window.removeEventListener("keydown", onKey); };
+  }, [id, onClose]);
+  const status = data?.raw?.status;
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal card" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+        <div className="card-top">
+          <span className="label">{data?.device?.name?.trim() ?? "Enhet"}</span>
+          <button className="modal-close" onClick={onClose} aria-label="Stäng">×</button>
+        </div>
+        {error && <div className="meta">Kunde inte hämta: {error}</div>}
+        {!data && !error && <div className="meta">Hämtar…</div>}
+        {data && (
+          <>
+            <h4 className="modal-h">Värden</h4>
+            <table className="kv">
+              <tbody>
+                {Object.entries(data.device).map(([k, v]) => (
+                  <tr key={k}><th>{k}</th><td>{v === null ? "–" : String(v)}</td></tr>
+                ))}
+              </tbody>
+            </table>
+            {Array.isArray(status) && status.length > 0 && (
+              <>
+                <h4 className="modal-h">Status (rå)</h4>
+                <table className="kv">
+                  <tbody>{status.map((s) => <tr key={s.code}><th>{s.code}</th><td>{JSON.stringify(s.value)}</td></tr>)}</tbody>
+                </table>
+              </>
+            )}
+            <h4 className="modal-h">Tuya-data</h4>
+            <pre className="raw">{JSON.stringify(data.raw, null, 2)}</pre>
+            <h4 className="modal-h">Specifikation</h4>
+            <pre className="raw">{JSON.stringify(data.specifications, null, 2)}</pre>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function TuyaPanel({ tuya }) {
+  const [selected, setSelected] = useState(null);
+  const closeDetails = useCallback(() => setSelected(null), []);
+  const open = (id) => ({
+    onClick: () => setSelected(id),
+    onKeyDown: (e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), setSelected(id)),
+    role: "button",
+    tabIndex: 0,
+  });
   if (!tuya) return <div className="card ev-panel"><span className="meta">Ingen brytardata än</span></div>;
-  const climate = tuya.devices.filter((d) => d.temperature_c !== null || d.humidity !== null);
+  const climate = tuya.devices.filter((d) => d.kind === "climate");
   const others = tuya.devices.filter((d) => !climate.includes(d));
   return (
     <>
+      {selected && <DeviceDetails id={selected} onClose={closeDetails} />}
       {climate.length > 0 && (
         <div className="grid">
           {climate.map((d) => (
-            <div key={d.id} className="card">
+            <div key={d.id} className="card clickable" {...open(d.id)}>
               <div className="card-top">
                 <span className="label">{d.name}</span>
                 <span className="age">{d.online ? formatAge(tuya.ts) : "offline"}</span>
@@ -232,7 +293,7 @@ function TuyaPanel({ tuya }) {
             if (d.current_a !== null) chips.push(`${d.current_a.toFixed(2)} A`);
             if (d.energy_kwh !== null) chips.push(`${d.energy_kwh.toFixed(2)} kWh`);
             return (
-              <div key={d.id} className={`card mini ev-panel ${tone}`}>
+              <div key={d.id} className={`card mini ev-panel clickable ${tone}`} {...open(d.id)}>
                 <span className="ev-dot" />
                 <span className="mini-name">{d.name.trim()}</span>
                 <span className="ev-status">{state}</span>
