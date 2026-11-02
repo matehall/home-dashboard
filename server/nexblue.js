@@ -25,6 +25,13 @@ const EV_SENSORS = [
 let tokens = { access: null, refresh: null, expiresAt: 0 };
 let lastEv = null;
 
+// Avvisade inloggningar (fel lösenord m.m.) får inte upprepas varje poll: NexBlue/Cognito låser kontot tillfälligt
+// ("Password attempts exceeded") och varje nytt försök förlänger problemet. Efter tre i rad väntar vi 30 minuter.
+const MAX_AUTH_FAILURES = 3;
+const AUTH_RETRY_MS = 30 * 60 * 1000;
+let authFailures = 0;
+let lastLoginAttempt = 0;
+
 class ApiError extends Error {
   constructor(message, status) { super(message); this.status = status; }
 }
@@ -65,9 +72,20 @@ async function ensureAccessToken() {
     }
   }
   if (!USERNAME || !PASSWORD) throw new Error('NEXBLUE_USERNAME/NEXBLUE_PASSWORD saknas');
-  storeTokens(await request('POST', '/openapi/account/login', {
-    body: { username: USERNAME, password: PASSWORD, account_type: 0 }, auth: false,
-  }), null);
+  if (authFailures >= MAX_AUTH_FAILURES && Date.now() - lastLoginAttempt < AUTH_RETRY_MS) {
+    throw new Error(`NexBlue: ${authFailures} avvisade inloggningar i rad, väntar innan nästa försök (kontrollera NEXBLUE_USERNAME/NEXBLUE_PASSWORD)`);
+  }
+  lastLoginAttempt = Date.now();
+  try {
+    storeTokens(await request('POST', '/openapi/account/login', {
+      body: { username: USERNAME, password: PASSWORD, account_type: 0 }, auth: false,
+    }), null);
+    authFailures = 0;
+  } catch (err) {
+    // Bara avslag från servern räknas, inte nätverksfel eller timeout.
+    if (err instanceof ApiError && err.status >= 400 && err.status < 500) authFailures += 1;
+    throw err;
+  }
 }
 
 function normalizeStatus(serial, p) {
