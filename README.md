@@ -57,7 +57,7 @@ Vill man lägga till en sensor: lägg till en rad i `SENSOR_MAP` (`server/mqttCl
 
 ### Husets förbrukning (NexBlue Zen)
 
-`server/zen.js` hämtar husets effekt från lastbalanseraren Zen via NexBlue-portalens API (`my.nexblue.com`) och sparar den per minut som `hus_effekt` (kW) i `readings`. Förbrukningsklockan (`server/consumption.js`) räknar kvartsmedel av den sensorn, så panelen slutar visa testdata när värden finns. `hus_energi_total` (kWh) sparas när mätaren ändras (den stegar en gång per timme; kvartsenergi räknas alltid från effekten).
+`server/zen.js` hämtar husets effekt från lastbalanseraren Zen via NexBlue-portalens API (`my.nexblue.com`), standard var 5:e minut (`NEXBLUE_PORTAL_POLL_SECONDS=300`), och sparar alla minutvärden som `hus_effekt` (kW) i `readings`. Förbrukningsklockan (`server/consumption.js`) räknar kvartsmedel av den sensorn, så panelen slutar visa testdata när värden finns. `hus_energi_total` (kWh) sparas när mätaren ändras (den stegar en gång per timme; kvartsenergi räknas alltid från effekten).
 
 - **Inofficiellt och odokumenterat API** som kan ändras utan förvarning. Skrivskyddat: inga skrivande anrop görs. Utredning och endpoints finns i AgentOps-hubben (`projects/home-dashboard/agentops/investigations/2026-11-02-nexblue-portal-api-zen.md`).
 - Inloggning med **portalkontot** via `NEXBLUE_PORTAL_USERNAME`/`NEXBLUE_PORTAL_PASSWORD` (kan vara ett annat konto än `NEXBLUE_USERNAME`) samt `NEXBLUE_DETECTOR_SN` (lastbalanserarens ID). Avstängd om något av de tre saknas.

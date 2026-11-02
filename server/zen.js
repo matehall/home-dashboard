@@ -16,7 +16,8 @@ const BASE_URL = (process.env.NEXBLUE_PORTAL_BASE_URL || 'https://api.nexblue.co
 const USERNAME = process.env.NEXBLUE_PORTAL_USERNAME;
 const PASSWORD = process.env.NEXBLUE_PORTAL_PASSWORD;
 const DETECTOR_SN = process.env.NEXBLUE_DETECTOR_SN;
-const POLL_MS = Math.max(Number(process.env.NEXBLUE_PORTAL_POLL_SECONDS) || 60, 30) * 1000;
+// Varje anrop hämtar alla minutpunkter sedan sist, så längre intervall ger inga luckor, bara ett äldre "nu"-värde.
+const POLL_MS = Math.max(Number(process.env.NEXBLUE_PORTAL_POLL_SECONDS) || 300, 30) * 1000;
 // Hur långt bakåt historik hämtas vid start eller efter avbrott (timmar, 0–72).
 const BACKFILL_HOURS = Math.min(Math.max(Number(process.env.NEXBLUE_PORTAL_BACKFILL_HOURS ?? 24) || 0, 0), 72);
 const ENABLED = Boolean(USERNAME && PASSWORD && DETECTOR_SN);
