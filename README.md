@@ -129,6 +129,8 @@ På Pi:n (en gång):
 4. Är paketet privat: `docker login ghcr.io` (PAT med `read:packages`) och montera config i Watchtower (se kommentar i compose-filen).
 5. `docker compose up -d`
 
+**Ändrar du `.env` (eller en ny version kräver nya variabler) måste containern skapas om:** `cd ~/dashboard-docker && docker compose up -d --force-recreate home-dashboard`. Watchtower återskapar containern från dess gamla konfiguration, så nya variabler läses inte in av en vanlig uppdatering, och integrationen loggar `avstängd`. `./data` (databasen) behålls.
+
 `deploy.sh` (pm2) behålls tills Docker-flödet är verifierat.
 
 ## Tuya-brytare (valfritt)
