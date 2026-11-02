@@ -94,6 +94,27 @@ module.exports = {
     return run('INSERT INTO readings (sensor, topic, value, unit, ts) VALUES (?, ?, ?, ?, ?)', [sensor, topic, value, unit, ts]);
   },
 
+  // Flera rader i en transaktion (backfill av historik). rows: { sensor, topic, value, unit, ts }.
+  async insertReadings(rows) {
+    if (!rows.length) return;
+    await run('BEGIN');
+    try {
+      for (const r of rows) {
+        await run('INSERT INTO readings (sensor, topic, value, unit, ts) VALUES (?, ?, ?, ?, ?)', [r.sensor, r.topic, r.value, r.unit, r.ts]);
+      }
+      await run('COMMIT');
+    } catch (err) {
+      await run('ROLLBACK').catch(() => {});
+      throw err;
+    }
+  },
+
+  // Senaste lagrade tidpunkt (epoch-ms) för en sensor, eller null om den saknas.
+  async getLastReadingTs(sensor) {
+    const rows = await all('SELECT MAX(ts) AS ts FROM readings WHERE sensor = ?', [sensor]);
+    return rows[0] && rows[0].ts !== null ? rows[0].ts : null;
+  },
+
   getLatest() {
     return all(`
       SELECT r.sensor, r.topic, r.value, r.unit, r.ts

@@ -8,6 +8,7 @@ const fs = require('fs');
 const db = require('./db');
 const { startMqttClient } = require('./mqttClient');
 const { startNexBlue, getLastEv } = require('./nexblue');
+const { startZen } = require('./zen');
 const { startRoborock, getLastVacuum } = require('./roborock');
 const { startTuya, getLastTuya, getDeviceDetails } = require('./tuya');
 const { startElectricity, getLastElectricity } = require('./electricity');
@@ -93,6 +94,7 @@ io.on('connection', async (socket) => {
 
 startMqttClient(io);
 startNexBlue(io);
+startZen(io);
 startRoborock(io);
 startTuya(io);
 startElectricity(io);
