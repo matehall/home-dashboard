@@ -60,7 +60,7 @@ Vill man lägga till en sensor: lägg till en rad i `SENSOR_MAP` (`server/mqttCl
 `server/zen.js` hämtar husets effekt från lastbalanseraren Zen via NexBlue-portalens API (`my.nexblue.com`), standard var 5:e minut (`NEXBLUE_PORTAL_POLL_SECONDS=300`), och sparar alla minutvärden som `hus_effekt` (kW) i `readings`. Förbrukningsklockan (`server/consumption.js`) räknar kvartsmedel av den sensorn, så panelen slutar visa testdata när värden finns. `hus_energi_total` (kWh) sparas när mätaren ändras (den stegar en gång per timme; kvartsenergi räknas alltid från effekten).
 
 - **Inofficiellt och odokumenterat API** som kan ändras utan förvarning. Skrivskyddat: inga skrivande anrop görs. Utredning och endpoints finns i AgentOps-hubben (`projects/home-dashboard/agentops/investigations/2026-11-02-nexblue-portal-api-zen.md`).
-- Inloggning med **portalkontot** via `NEXBLUE_PORTAL_USERNAME`/`NEXBLUE_PORTAL_PASSWORD` (kan vara ett annat konto än `NEXBLUE_USERNAME`) samt `NEXBLUE_DETECTOR_SN` (lastbalanserarens ID). Avstängd om något av de tre saknas. På Pi:n läses `.env` bredvid `docker-compose.yml` (inte `server/.env`, som bara används vid lokal körning); efter ändring: `docker compose up -d` i den katalogen.
+- Inloggning med **portalkontot** via `NEXBLUE_PORTAL_USERNAME`/`NEXBLUE_PORTAL_PASSWORD` (kan vara ett annat konto än `NEXBLUE_USERNAME`) samt `NEXBLUE_DETECTOR_SN` (lastbalanserarens ID). Avstängd om något av de tre saknas. På Pi:n läses `.env` bredvid `docker-compose.yml` (inte `server/.env`, som bara används vid lokal körning); efter ändring: `docker compose up -d` i den katalogen. Ett `$` i lösenordet tolkas av docker compose som variabel och måste stå inom enkla citattecken eller skrivas `$$`. Lyckad hämtning syns i `docker logs` som `[zen] sparade N punkter …`.
 - Vid start och efter avbrott fylls historik på bakåt, standard 24 timmar (`NEXBLUE_PORTAL_BACKFILL_HOURS`, högst 72). Token gäller 24 timmar; modulen loggar in på nytt vid behov och väntar 30 minuter efter tre avvisade inloggningar i rad så att kontot inte spärras.
 - Testa mot riktiga kontot utan att röra databasen: `node scripts/nexblue-portal-test.js --sn <id> --date YYYY-MM-DD` (frågar efter lösenordet om det inte finns i miljön).
 
@@ -128,6 +128,8 @@ På Pi:n (en gång):
 3. Flytta ev. befintlig `dashboard.db` till `./data/`.
 4. Är paketet privat: `docker login ghcr.io` (PAT med `read:packages`) och montera config i Watchtower (se kommentar i compose-filen).
 5. `docker compose up -d`
+
+**Ändrar du `.env` (eller en ny version kräver nya variabler) måste containern skapas om:** `cd ~/dashboard-docker && docker compose up -d --force-recreate home-dashboard`. Watchtower återskapar containern från dess gamla konfiguration, så nya variabler läses inte in av en vanlig uppdatering, och integrationen loggar `avstängd`. `./data` (databasen) behålls.
 
 `deploy.sh` (pm2) behålls tills Docker-flödet är verifierat.
 
