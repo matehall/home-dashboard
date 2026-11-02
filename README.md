@@ -52,8 +52,17 @@ Vill man lägga till en sensor: lägg till en rad i `SENSOR_MAP` (`server/mqttCl
 - API:et är NexBlues molntjänst (`https://api.nexblue.com/third_party`, standardvärde hämtat från Home Assistants NexBlue-integration), inte laddboxen direkt. Inloggning med NexBlue-kontot via `NEXBLUE_USERNAME`/`NEXBLUE_PASSWORD` i `server/.env`.
 - Integrationen är **avstängd** om användarnamn/lösenord saknas. `NEXBLUE_MOCK=1` ger testdata som aldrig sparas i databasen.
 - Start/stopp av laddning stöds av API:et men är medvetet inte implementerat (dashboarden saknar inloggning).
-- NexBlue Zen (smart meter) saknas i API:et och är inte integrerad.
+- NexBlue Zen (lastbalanseraren) saknas i det här API:et men läses via portalens API, se nedan.
 - Betydelsen av `charging_state` (0–7) kommer från Home Assistant-integrationen och finns i `CHARGING_STATES` i `client/src/App.jsx`.
+
+### Husets förbrukning (NexBlue Zen)
+
+`server/zen.js` hämtar husets effekt från lastbalanseraren Zen via NexBlue-portalens API (`my.nexblue.com`), standard var 5:e minut (`NEXBLUE_PORTAL_POLL_SECONDS=300`), och sparar alla minutvärden som `hus_effekt` (kW) i `readings`. Förbrukningsklockan (`server/consumption.js`) räknar kvartsmedel av den sensorn, så panelen slutar visa testdata när värden finns. `hus_energi_total` (kWh) sparas när mätaren ändras (den stegar en gång per timme; kvartsenergi räknas alltid från effekten).
+
+- **Inofficiellt och odokumenterat API** som kan ändras utan förvarning. Skrivskyddat: inga skrivande anrop görs. Utredning och endpoints finns i AgentOps-hubben (`projects/home-dashboard/agentops/investigations/2026-11-02-nexblue-portal-api-zen.md`).
+- Inloggning med **portalkontot** via `NEXBLUE_PORTAL_USERNAME`/`NEXBLUE_PORTAL_PASSWORD` (kan vara ett annat konto än `NEXBLUE_USERNAME`) samt `NEXBLUE_DETECTOR_SN` (lastbalanserarens ID). Avstängd om något av de tre saknas. På Pi:n läses `.env` bredvid `docker-compose.yml` (inte `server/.env`, som bara används vid lokal körning); efter ändring: `docker compose up -d` i den katalogen.
+- Vid start och efter avbrott fylls historik på bakåt, standard 24 timmar (`NEXBLUE_PORTAL_BACKFILL_HOURS`, högst 72). Token gäller 24 timmar; modulen loggar in på nytt vid behov och väntar 30 minuter efter tre avvisade inloggningar i rad så att kontot inte spärras.
+- Testa mot riktiga kontot utan att röra databasen: `node scripts/nexblue-portal-test.js --sn <id> --date YYYY-MM-DD` (frågar efter lösenordet om det inte finns i miljön).
 
 ## Kom igång
 

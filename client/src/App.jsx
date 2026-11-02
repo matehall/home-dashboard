@@ -50,6 +50,8 @@ const SENSOR_LABELS = {
   ev_effekt: "Laddeffekt",
   ev_energi_session: "Energi (session)",
   ev_energi_total: "Energi (totalt)",
+  hus_effekt: "Husets effekt",
+  hus_energi_total: "Husets energi (totalt)",
   vacuum_batteri: "Batteri",
   vacuum_yta: "Städad yta",
 };

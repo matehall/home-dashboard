@@ -1,7 +1,7 @@
 // Husets elförbrukning per kvart (medeleffekt i kW) för dagens dygn, som underlag för förbrukningsklockan.
-// Källa: sensorn CONSUMPTION_SENSOR (standard hus_effekt, kW) i readings. Den fylls av en framtida mätare
-// (HAN/P1-läsare via MQTT, se SENSOR_MAP i mqttClient.js). Saknas värden visas en tydligt märkt demoprofil
-// (demo: true) tills mätaren finns; CONSUMPTION_DEMO=0 stänger av den.
+// Källa: sensorn CONSUMPTION_SENSOR (standard hus_effekt, kW) i readings. Den fylls av NexBlue Zen via zen.js
+// (eller av en annan mätare via MQTT, se SENSOR_MAP i mqttClient.js). Saknas värden visas en tydligt märkt
+// demoprofil (demo: true) tills mätaren finns; CONSUMPTION_DEMO=0 stänger av den.
 const db = require('./db');
 
 const SENSOR = process.env.CONSUMPTION_SENSOR || 'hus_effekt';
