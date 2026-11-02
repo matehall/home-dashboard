@@ -94,18 +94,18 @@ module.exports = {
     return run('INSERT INTO readings (sensor, topic, value, unit, ts) VALUES (?, ?, ?, ?, ?)', [sensor, topic, value, unit, ts]);
   },
 
-  // Flera rader i en transaktion (backfill av historik). rows: { sensor, topic, value, unit, ts }.
+  // Flera rader (backfill av historik). rows: { sensor, topic, value, unit, ts }.
+  // Flerradiga INSERT i bitar i stället för en egen transaktion: alla moduler delar en enda SQLite-anslutning, så ett
+  // BEGIN här kan krocka med upsertPrices och ge "cannot start a transaction within a transaction". Varje sats är atomär.
+  // 5 parametrar per rad och SQLites gräns på 999 variabler ger högst 199 rader per sats.
   async insertReadings(rows) {
-    if (!rows.length) return;
-    await run('BEGIN');
-    try {
-      for (const r of rows) {
-        await run('INSERT INTO readings (sensor, topic, value, unit, ts) VALUES (?, ?, ?, ?, ?)', [r.sensor, r.topic, r.value, r.unit, r.ts]);
-      }
-      await run('COMMIT');
-    } catch (err) {
-      await run('ROLLBACK').catch(() => {});
-      throw err;
+    const CHUNK = 199;
+    for (let i = 0; i < rows.length; i += CHUNK) {
+      const part = rows.slice(i, i + CHUNK);
+      await run(
+        `INSERT INTO readings (sensor, topic, value, unit, ts) VALUES ${part.map(() => '(?, ?, ?, ?, ?)').join(', ')}`,
+        part.flatMap((r) => [r.sensor, r.topic, r.value, r.unit, r.ts]),
+      );
     }
   },
 

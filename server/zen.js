@@ -36,6 +36,7 @@ let lastAuthAttempt = 0;
 let lastTsMs = null; // senaste lagrade minutpunkt för POWER_SENSOR
 let lastEnergy = null;
 let busy = false;
+let announced = false; // första lyckade sparningen loggas, och sedan igen efter ett fel (syns i docker logs)
 
 class ApiError extends Error {
   constructor(message, status, code) { super(message); this.status = status; this.code = code; }
@@ -140,7 +141,7 @@ async function pollOnce(io) {
   }
 
   const { rows, energy } = toReadings(points, lastTsMs);
-  if (!rows.length) return;
+  if (!rows.length) return 0;
   await db.insertReadings(rows);
   lastEnergy = energy;
   const power = rows.filter((r) => r.sensor === POWER_SENSOR);
@@ -151,6 +152,7 @@ async function pollOnce(io) {
     const last = [...rows].reverse().find((r) => r.sensor === sensor);
     if (last) io.emit('update', { sensor, value: last.value, unit: last.unit, ts: last.ts });
   }
+  return power.length;
 }
 
 function startZen(io) {
@@ -163,8 +165,14 @@ function startZen(io) {
     busy = true;
     try {
       if (lastTsMs === null) lastTsMs = await db.getLastReadingTs(POWER_SENSOR);
-      await pollOnce(io);
+      const saved = await pollOnce(io);
+      if (saved > 0 && !announced) {
+        announced = true;
+        const time = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Stockholm', hour: '2-digit', minute: '2-digit' }).format(new Date(lastTsMs));
+        console.log(`[zen] sparade ${saved} punkter (${POWER_SENSOR}), senaste kl ${time}`);
+      }
     } catch (err) {
+      announced = false;
       console.error('[zen] poll failed:', err.message);
     } finally {
       busy = false;
