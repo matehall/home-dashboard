@@ -13,6 +13,7 @@ const { startRoborock, getLastVacuum } = require('./roborock');
 const { startTuya, getLastTuya, getDeviceDetails } = require('./tuya');
 const { startElectricity, getLastElectricity } = require('./electricity');
 const { getConsumption } = require('./consumption');
+const { getCost } = require('./cost');
 const { startPriceControl, getControlStatus } = require('./priceControl');
 
 const app = express();
@@ -49,6 +50,9 @@ app.get('/api/electricity', (_req, res) => res.json(getLastElectricity()));
 app.get('/api/control', (_req, res) => res.json(getControlStatus()));
 app.get('/api/consumption', async (_req, res, next) => {
   try { res.json(await getConsumption()); } catch (err) { next(err); }
+});
+app.get('/api/cost', async (_req, res, next) => {
+  try { res.json(await getCost()); } catch (err) { next(err); }
 });
 app.get('/api/tuya/devices/:id', async (req, res, next) => {
   try {

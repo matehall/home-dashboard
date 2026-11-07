@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node index.js",
     "dev": "node --watch index.js",
+    "test": "node --test test/*.test.js",
     "import:openhab": "node ../scripts/import-openhab-history.js",
     "test:nexblue": "node ../scripts/nexblue-test.js",
     "test:nexblue-portal": "node ../scripts/nexblue-portal-test.js"

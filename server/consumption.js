@@ -2,7 +2,6 @@
 // Källa: sensorn CONSUMPTION_SENSOR (standard hus_effekt, kW) i readings. Den fylls av NexBlue Zen via zen.js
 // (eller av en annan mätare via MQTT, se SENSOR_MAP i mqttClient.js). Saknas värden visas en tydligt märkt
 // demoprofil (demo: true) tills mätaren finns; CONSUMPTION_DEMO=0 stänger av den.
-const db = require('./db');
 
 const SENSOR = process.env.CONSUMPTION_SENSOR || 'hus_effekt';
 const DEMO = process.env.CONSUMPTION_DEMO !== '0';
@@ -36,6 +35,7 @@ function demoKw(ts, dayStart) {
 }
 
 async function getConsumption(now = Date.now()) {
+  const db = require('./db'); // lazy, så datumhjälparna kan användas (och testas) utan SQLite
   const today = stockholmDate(now);
   const dayStart = stockholmMidnight(today);
   const dayEnd = stockholmMidnight(addDays(today, 1));
@@ -53,4 +53,4 @@ async function getConsumption(now = Date.now()) {
   return { sensor: SENSOR, demo, ts: now, quarters, available: true };
 }
 
-module.exports = { getConsumption };
+module.exports = { getConsumption, stockholmDate, addDays, stockholmMidnight };

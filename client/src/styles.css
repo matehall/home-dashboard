@@ -223,3 +223,9 @@ button, select { font: inherit; letter-spacing: .06em; }
 .elpris-list.hot li { border-left-color: var(--warn); background: rgba(251, 191, 36, .06); }
 .elpris-list.hot b { color: var(--warn); }
 .clk-seg.empty { opacity: .35; cursor: default; }
+
+/* Kostnadspaneler (bil/hus) */
+.cost-nums { display: flex; gap: 32px; margin: 6px 0 10px; }
+.cost-charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px 20px; }
+.cost-bars .modal-h { margin: 0 0 4px; }
+.cost-panel .elpris-now { color: var(--accent); }
