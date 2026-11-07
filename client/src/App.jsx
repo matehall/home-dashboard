@@ -431,6 +431,82 @@ function ElectricityPanel({ electricity }) {
   );
 }
 
+const kr = (v) => (v === null || v === undefined ? "–" : `${v.toFixed(2).replace(".", ",")} kr`);
+
+// Liten stapel med exakt värde vid hover. series: [{ key, label, kr, kwh }]
+function CostBars({ title, series, color }) {
+  return (
+    <div className="cost-bars">
+      <h4 className="modal-h">{title}</h4>
+      <ResponsiveContainer width="100%" height={80}>
+        <BarChart data={series} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
+          <XAxis dataKey="label" hide />
+          <YAxis hide domain={[0, "auto"]} />
+          <Tooltip
+            cursor={{ fill: "rgba(34, 211, 238, .08)" }}
+            content={({ active, payload }) => {
+              const d = active && payload?.[0]?.payload;
+              if (!d) return null;
+              return (
+                <div className="custom-tooltip">
+                  <p>{d.label}</p>
+                  <p>{d.kr === null ? "Ingen data" : `${kr(d.kr)} · ${d.kwh.toFixed(2).replace(".", ",")} kWh`}</p>
+                </div>
+              );
+            }}
+          />
+          <Bar dataKey="kr" fill={color} radius={[2, 2, 0, 0]} isAnimationActive={false} />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+// Kostnad för bil eller hus (hus = totalt minus bil). kind: "bil" | "hus".
+function CostPanel({ kind, cost }) {
+  const color = kind === "bil" ? "var(--accent)" : "var(--ok)";
+  const pick = (pt) => pt?.[kind] ?? null;
+  const toSeries = (arr, label) => (arr ?? []).map((pt) => ({
+    key: pt.key, label: label(pt.key), kr: pick(pt)?.kr ?? null, kwh: pick(pt)?.kwh ?? 0,
+  }));
+  const dayLabel = (k) => `${Number(k.slice(8))}/${Number(k.slice(5, 7))}`;
+  const monthLabel = (k) => new Date(`${k}-01T12:00:00`).toLocaleDateString("sv-SE", { month: "long", year: "numeric" });
+  const title = kind === "bil" ? "Elbil" : "Hus (utan bil)";
+  if (!cost) return <div className="card cost-panel"><span className="meta">Laddar kostnad…</span></div>;
+  const incomplete = cost.today.incomplete || cost.month.incomplete;
+  return (
+    <div className="card cost-panel" style={{ "--accent": color }}>
+      <span className="meta">Kostnad {title}{incomplete && " (spotpris saknas för vissa kvartar)"}</span>
+      <div className="cost-nums">
+        <div><span className="meta">Idag</span><div className="elpris-now">{kr(pick(cost.today)?.kr ?? null)}</div></div>
+        <div><span className="meta">Månaden</span><div className="elpris-now">{kr(pick(cost.month)?.kr ?? null)}</div></div>
+      </div>
+      <div className="cost-charts">
+        <CostBars title="Per dag (30 d)" series={toSeries(cost.days, dayLabel)} color={color} />
+        <CostBars title="Per månad" series={toSeries(cost.months, monthLabel)} color={color} />
+        <CostBars title="Per år" series={toSeries(cost.years, (k) => k)} color={color} />
+      </div>
+    </div>
+  );
+}
+
+function CostRow() {
+  const [cost, setCost] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    const load = () => fetch(`${API_BASE}/api/cost`).then((r) => r.json()).then((d) => alive && setCost(d)).catch(() => {});
+    load();
+    const id = setInterval(load, 60000);
+    return () => { alive = false; clearInterval(id); };
+  }, []);
+  return (
+    <div className="elpris-row">
+      <CostPanel kind="bil" cost={cost} />
+      <CostPanel kind="hus" cost={cost} />
+    </div>
+  );
+}
+
 function ConsumptionPanel({ electricity }) {
   const [data, setData] = useState(null);
   const [now, setNow] = useState(() => Date.now());
@@ -813,6 +889,7 @@ export default function App() {
               <ConsumptionPanel electricity={electricity} />
             </div>
           )}
+          {group.extra === "electricity" && <CostRow />}
           {group.extra === "tuya" && <TuyaPanel tuya={tuya} control={control} />}
         </section>
       ))}
