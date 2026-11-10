@@ -154,6 +154,9 @@ button, select { font: inherit; letter-spacing: .06em; }
 .ev-panel { margin-top: 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; padding: 16px 24px 30px; --accent: var(--muted); --edge: color-mix(in srgb, var(--accent) 65%, #03121a); --fill: linear-gradient(90deg, color-mix(in srgb, var(--accent) 14%, #06242f), #06242f 60%); }
 .ev-panel.charging { --accent: #1fd1ff; }
 .ev-panel.error { --accent: #f43f5e; }
+.ev-panel.idle { --accent: #7b8794; --fill: linear-gradient(90deg, #0b1219, #080e14 60%); }
+.card.mini.idle { opacity: .6; }
+.ev-panel.idle .ev-dot { background: transparent; border: 2px solid var(--accent); box-shadow: none; }
 .ev-state { display: grid; grid-template-columns: auto 1fr; column-gap: 10px; align-items: center; min-width: 150px; }
 .ev-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 10px var(--accent); grid-row: span 2; }
 .ev-panel.charging .ev-dot { animation: ev-pulse 1.6s ease-in-out infinite; }
