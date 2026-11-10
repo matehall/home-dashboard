@@ -201,5 +201,11 @@ async function getDeviceDetails(id) {
   return { device, raw: rawById[id] ?? null, specifications, probes, ts: lastTuya.ts };
 }
 
+// Rå enhetslista inklusive local_key/ip, bara för engångsskriptet scripts/tuya-local-discover.js. Skickas aldrig via HTTP/socket.
+async function fetchRawDeviceList() {
+  await ensureToken();
+  return (await request(`/v1.0/users/${encodeURIComponent(UID)}/devices`)) || [];
+}
+
 module.exports = {
-  setSwitch, startTuya, getLastTuya: () => lastTuya, getDeviceDetails };
+  setSwitch, startTuya, getLastTuya: () => lastTuya, getDeviceDetails, fetchRawDeviceList };
