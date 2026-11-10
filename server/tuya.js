@@ -6,7 +6,8 @@ const ACCESS_ID = process.env.TUYA_ACCESS_ID;
 const ACCESS_SECRET = process.env.TUYA_ACCESS_SECRET;
 const UID = process.env.TUYA_UID;
 const ENDPOINT = (process.env.TUYA_ENDPOINT || 'https://openapi.tuyaeu.com').replace(/\/+$/, '');
-const POLL_MS = Math.max(Number(process.env.TUYA_POLL_SECONDS) || 60, 30) * 1000;
+// Trial-prenumerationen på Tuya IoT Core ger 26 000 API-anrop per månad: 300 s ger ca 8 600 anrop, 60 s ger ca 43 000 (över kvoten).
+const POLL_MS = Math.max(Number(process.env.TUYA_POLL_SECONDS) || 300, 300) * 1000;
 const MOCK = process.env.TUYA_MOCK === '1';
 const ENABLED = MOCK || Boolean(ACCESS_ID && ACCESS_SECRET && UID);
 
