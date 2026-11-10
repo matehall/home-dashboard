@@ -406,6 +406,7 @@ function ElectricityPanel({ electricity }) {
           {ores.length > 0 && (
             <div className="elpris-stats">
               <span>Lägst <b>{formatOre(Math.min(...ores))}</b></span>
+              <span>Medel <b>{formatOre(ores.reduce((a, b) => a + b, 0) / ores.length)}</b></span>
               <span>Högst <b>{formatOre(Math.max(...ores))}</b></span>
             </div>
           )}
@@ -615,7 +616,7 @@ function TuyaPanel({ tuya, control }) {
             if (d.energy_kwh !== null) chips.push(`${d.energy_kwh.toFixed(2)} kWh`);
             if (control?.enabled && control.deviceId === d.id) {
               const price = control.price === null ? "okänt pris" : `${control.price.toFixed(1).replace(".", ",")} öre`;
-              chips.push(`Prisstyrd: på under ${control.maxOre} öre (nu ${price})`);
+              chips.push(control.limitOre == null ? `Prisstyrd: på under dygnsmedel (nu ${price})` : `Prisstyrd: på under dygnsmedel ${control.limitOre.toFixed(1).replace(".", ",")} öre (nu ${price})`);
             }
             return (
               <div key={d.id} className={`card mini ev-panel clickable ${tone}`} {...open(d.id)}>
