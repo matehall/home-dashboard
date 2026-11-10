@@ -1,6 +1,7 @@
 // Tuya-brytare (Smart Life/Tuya) — skrivskyddad poller mot Tuya Cloud OpenAPI.
 // Utan TUYA_ACCESS_ID/TUYA_ACCESS_SECRET/TUYA_UID körs ingenting; TUYA_MOCK=1 ger testdata som aldrig sparas.
 const crypto = require('crypto');
+const { startLocal, getLocal, setSwitchLocal } = require('./tuyaLocal');
 
 const ACCESS_ID = process.env.TUYA_ACCESS_ID;
 const ACCESS_SECRET = process.env.TUYA_ACCESS_SECRET;
@@ -17,6 +18,7 @@ const STORE_EVERY_MS = 10 * 60 * 1000;
 const EMPTY_SHA256 = crypto.createHash('sha256').update('').digest('hex');
 
 let lastTuya = null;
+let cloudList = null; // senaste molnlistan; slås ihop med lokala värden vid varje publicering
 let rawById = {}; // rådata per enhet för detaljrutan; skickas aldrig via socket
 // Enhetens lokala nyckel, position, publika IP och konto-id:n ska aldrig lämna servern (dashboarden saknar inloggning).
 const SECRET_FIELDS = ['local_key', 'lat', 'lon', 'ip', 'uid', 'owner_id', 'uuid'];
@@ -60,6 +62,20 @@ function kindOf(d, dp) {
   return CLIMATE_CODES.some((c) => c in dp) ? 'climate' : 'switch';
 }
 
+// Lokala datapunkter för nätdrivna pluggar (kategori cz) översätts till Tuyas statuskoder och ersätter molnets värden.
+const LOCAL_DPS = { switch_1: '1', add_ele: '17', cur_current: '18', cur_power: '19', cur_voltage: '20' };
+function withLocal(d) {
+  if (d.category !== 'cz') return d;
+  const l = getLocal(d.id);
+  if (!l) return d;
+  // Bara koder som pluggen faktiskt skickar lokalt ersätts; övriga (t.ex. energi på Outdoor Plug) behålls från molnet.
+  const local = Object.entries(LOCAL_DPS).filter(([, dp]) => dp in l.dps);
+  const replaced = new Set(local.map(([code]) => code));
+  const status = (d.status || []).filter((s) => !replaced.has(s.code));
+  for (const [code, dp] of local) status.push({ code, value: l.dps[dp] });
+  return { ...d, status, online: true };
+}
+
 function normalize(d) {
   const dp = Object.fromEntries((d.status || []).map((s) => [s.code, s.value]));
   const sw = dp.switch_1 ?? dp.switch ?? dp.switch_led;
@@ -99,7 +115,7 @@ async function fetchDevices() {
       }),
   );
   rawById = Object.fromEntries(list.map((d) => [d.id, Object.fromEntries(Object.entries(d).filter(([k]) => !SECRET_FIELDS.includes(k)))]));
-  return list.map(normalize); // alla definierade enheter, även offline
+  return list; // alla definierade enheter, även offline
 }
 
 function fetchMockDevices() {
@@ -127,23 +143,53 @@ function sensorsFor(dev) {
   return out;
 }
 
-async function pollOnce(io) {
-  const devices = MOCK ? fetchMockDevices() : await fetchDevices();
-  const ts = Date.now();
-  lastTuya = { devices, ts };
+// Bygger enhetslistan av molndata + lokala värden, sparar ändringar och skickar till klienterna.
+// Anropas efter varje molnpoll och (strypt) när en lokal plugg skickar en uppdatering.
+let publishing = false;
+async function publish(io) {
+  if (publishing) return;
+  publishing = true;
+  try {
+    const devices = MOCK ? fetchMockDevices() : cloudList.map((d) => normalize(withLocal(d)));
+    const ts = Date.now();
+    lastTuya = { devices, ts };
 
-  for (const dev of devices) {
-    if (!dev.online) continue;
-    for (const { sensor, unit, value } of sensorsFor(dev)) {
-      const prev = lastStored[sensor];
-      if (!MOCK && (!prev || prev.value !== value || ts - prev.ts >= STORE_EVERY_MS)) {
-        await require('./db').insertReading(sensor, TOPIC, value, unit, ts); // mock sparas aldrig
-        lastStored[sensor] = { value, ts };
+    for (const dev of devices) {
+      if (!dev.online) continue;
+      for (const { sensor, unit, value } of sensorsFor(dev)) {
+        const prev = lastStored[sensor];
+        // På/av sparas direkt vid ändring; mätvärden högst en gång per minut (lokala uppdateringar kommer ofta).
+        const minGap = sensor.endsWith('_pa') ? 0 : 60 * 1000;
+        if (!MOCK && (!prev || (prev.value !== value && ts - prev.ts >= minGap) || ts - prev.ts >= STORE_EVERY_MS)) {
+          await require('./db').insertReading(sensor, TOPIC, value, unit, ts); // mock sparas aldrig
+          lastStored[sensor] = { value, ts };
+        }
+        io.emit('update', { sensor, value, unit, ts });
       }
-      io.emit('update', { sensor, value, unit, ts });
     }
+    io.emit('tuya', lastTuya);
+  } finally {
+    publishing = false;
   }
-  io.emit('tuya', lastTuya);
+}
+
+// Lokala uppdateringar publiceras strypt: på/av inom en sekund, mätvärden som mest var 15:e sekund.
+let publishTimer = null;
+function schedulePublish(io, urgent) {
+  if (publishTimer && !urgent) return;
+  if (publishTimer) clearTimeout(publishTimer);
+  publishTimer = setTimeout(() => {
+    publishTimer = null;
+    publish(io).catch((err) => console.error('[tuya] publicering misslyckades:', err.message));
+  }, urgent ? 1000 : 15000);
+}
+
+async function pollOnce(io) {
+  if (!MOCK) {
+    cloudList = await fetchDevices();
+    startLocal(cloudList.filter((d) => d.category === 'cz').map((d) => d.id), (urgent) => schedulePublish(io, urgent));
+  }
+  await publish(io);
 }
 
 function startTuya(io) {
@@ -171,6 +217,12 @@ async function setSwitch(id, on) {
   const device = lastTuya?.devices.find((d) => d.id === id);
   if (!device) throw new Error('okänd enhet');
   if (MOCK) { console.log(`[tuya] MOCK: skulle sätta ${device.name} ${on ? 'på' : 'av'}`); return 'mock'; }
+  try {
+    await setSwitchLocal(id, on); // lokalt först: omedelbart och utan molnanrop
+    return 'lokal';
+  } catch (err) {
+    console.error(`[tuya] lokalt kommando misslyckades (${err.message}), försöker via molnet`);
+  }
   const code = SWITCH_CODES.find((c) => (rawById[id]?.status || []).some((s) => s.code === c));
   if (!code) throw new Error('enheten har ingen strömbrytarkod');
   await ensureToken();
@@ -201,5 +253,11 @@ async function getDeviceDetails(id) {
   return { device, raw: rawById[id] ?? null, specifications, probes, ts: lastTuya.ts };
 }
 
+// Rå enhetslista inklusive local_key/ip, bara för engångsskriptet scripts/tuya-local-discover.js. Skickas aldrig via HTTP/socket.
+async function fetchRawDeviceList() {
+  await ensureToken();
+  return (await request(`/v1.0/users/${encodeURIComponent(UID)}/devices`)) || [];
+}
+
 module.exports = {
-  setSwitch, startTuya, getLastTuya: () => lastTuya, getDeviceDetails };
+  setSwitch, startTuya, getLastTuya: () => lastTuya, getDeviceDetails, fetchRawDeviceList };
