@@ -65,6 +65,13 @@ function getCurrentPrice(now = Date.now()) {
   return ore === undefined ? null : ore;
 }
 
+// Medelpris (öre/kWh) för den svenska kalenderdygnet som `now` ligger i, över de kvartar som finns. null om dagen saknar priser.
+function getDayAverage(now = Date.now()) {
+  const day = stockholmDate(now);
+  const vals = [...prices.entries()].filter(([ts]) => stockholmDate(ts) === day).map(([, ore]) => ore);
+  return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+}
+
 function getPrices(fromTs, toTs) {
   return [...prices.entries()]
     .filter(([ts]) => ts >= fromTs && ts < toTs)
@@ -137,4 +144,4 @@ function getLastElectricity() {
   return lastElectricity;
 }
 
-module.exports = { startElectricity, getLastElectricity, getCurrentPrice, getPrices };
+module.exports = { startElectricity, getLastElectricity, getCurrentPrice, getDayAverage, getPrices };
