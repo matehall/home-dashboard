@@ -666,6 +666,17 @@ function HeaderClock({ seconds = true }) {
 
 // Köksskärmen (?view=kitchen, 1280x800 utan scroll): spotpris, husets förbrukning, husets kostnad och klocka.
 function KitchenView({ electricity, connected }) {
+  // Ingen tangentbord eller mus i köket: ladda om sidan själv när anslutningen varit nere en stund eller nätet kommer tillbaka.
+  useEffect(() => {
+    if (connected) return undefined;
+    const id = setTimeout(() => window.location.reload(), 60000);
+    return () => clearTimeout(id);
+  }, [connected]);
+  useEffect(() => {
+    const reload = () => window.location.reload();
+    window.addEventListener("online", reload);
+    return () => window.removeEventListener("online", reload);
+  }, []);
   return (
     <div className="kitchen">
       <header className="kitchen-head">
