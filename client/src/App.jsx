@@ -267,9 +267,11 @@ function DeviceDetails({ id, onClose }) {
 
 const PRICE_TZ = "Europe/Stockholm";
 const QUARTER_MS = 15 * 60 * 1000;
-const dayKey = (ts) => new Intl.DateTimeFormat("sv-SE", { timeZone: PRICE_TZ }).format(new Date(ts));
-const quarterLabel = (ts) =>
-  new Intl.DateTimeFormat("sv-SE", { timeZone: PRICE_TZ, hour: "2-digit", minute: "2-digit" }).format(new Date(ts));
+// Intl.DateTimeFormat är dyrt att skapa (flera ms på en Pi 3) och anropas per pris och kvartssegment: skapa en gång.
+const DAY_FMT = new Intl.DateTimeFormat("sv-SE", { timeZone: PRICE_TZ });
+const QUARTER_FMT = new Intl.DateTimeFormat("sv-SE", { timeZone: PRICE_TZ, hour: "2-digit", minute: "2-digit" });
+const dayKey = (ts) => DAY_FMT.format(new Date(ts));
+const quarterLabel = (ts) => QUARTER_FMT.format(new Date(ts));
 const formatOre = (v) => (v === null || v === undefined ? "–" : `${v.toFixed(1).replace(".", ",")} öre/kWh`);
 
 // Prisklockan: ett dygn som en ring, midnatt överst och medsols. Varje kvart är ett segment vars längd är priset.
@@ -653,14 +655,18 @@ function SensorCard({ item }) {
   );
 }
 
+const CLOCK_FMT = new Intl.DateTimeFormat("sv-SE", { timeZone: PRICE_TZ, hour: "2-digit", minute: "2-digit" });
+const CLOCK_SEC_FMT = new Intl.DateTimeFormat("sv-SE", { timeZone: PRICE_TZ, hour: "2-digit", minute: "2-digit", second: "2-digit" });
+const CLOCK_DATE_FMT = new Intl.DateTimeFormat("sv-SE", { timeZone: PRICE_TZ, weekday: "long", day: "numeric", month: "long" });
+
 function HeaderClock({ seconds = true }) {
   const [t, setT] = useState(() => new Date());
   useEffect(() => {
     const id = setInterval(() => setT(new Date()), seconds ? 1000 : 15000);
     return () => clearInterval(id);
   }, []);
-  const time = new Intl.DateTimeFormat("sv-SE", { timeZone: PRICE_TZ, hour: "2-digit", minute: "2-digit", ...(seconds ? { second: "2-digit" } : {}) }).format(t);
-  const date = new Intl.DateTimeFormat("sv-SE", { timeZone: PRICE_TZ, weekday: "long", day: "numeric", month: "long" }).format(t);
+  const time = (seconds ? CLOCK_SEC_FMT : CLOCK_FMT).format(t);
+  const date = CLOCK_DATE_FMT.format(t);
   return <div className="header-clock"><b>{time}</b><span>{date}</span></div>;
 }
 
