@@ -66,15 +66,6 @@ const TIME_RANGES = {
   "all": { label: "Alla", ms: null, resolution: "month" },
 };
 
-function formatAge(ts) {
-  const sec = Math.max(0, Math.floor((Date.now() - ts) / 1000));
-  if (sec < 60) return `${sec}s sedan`;
-  const min = Math.floor(sec / 60);
-  if (min < 60) return `${min}m sedan`;
-  const h = Math.floor(min / 60);
-  return `${h}h sedan`;
-}
-
 function formatTime(ts) {
   return new Date(ts).toLocaleTimeString("sv-SE", { hour: "2-digit", minute: "2-digit" });
 }
@@ -143,7 +134,7 @@ function EvPanel({ ev }) {
       <div className="ev-state">
         <span className="ev-dot" />
         <span className="ev-status">{state}</span>
-        <span className="ev-serial">{ev.serial} · {formatAge(ev.ts)}</span>
+        <span className="ev-serial">{ev.serial} · Uppdaterad {formatTime(ev.ts)}</span>
       </div>
       {ev.current_a.length > 0 && (
         <div className="ev-phases">
@@ -196,7 +187,7 @@ function VacuumPanel({ vacuum }) {
       <div className="ev-state">
         <span className="ev-dot" />
         <span className="ev-status">{state}</span>
-        <span className="ev-serial">Roborock S5 · {formatAge(vacuum.ts)}</span>
+        <span className="ev-serial">Roborock S5 · Uppdaterad {formatTime(vacuum.ts)}</span>
       </div>
       <div className="ev-chips">
         {chips.map(([k, v]) => (<span key={k} className="chip"><em>{k}</em>{v}</span>))}
@@ -602,7 +593,7 @@ function TuyaPanel({ tuya, control }) {
               <div className="meta">
                 {d.online ? `Fukt ${d.humidity ?? "–"} % · Batteri ${d.battery !== null ? `${d.battery} %` : BATTERY_STATE[d.battery_state] ?? "–"}` : "Ingen kontakt"}
               </div>
-              <div className="meta">{d.online ? formatAge(tuya.ts) : "offline"}</div>
+              <div className="meta">{d.online ? `Uppdaterad ${formatTime(tuya.ts)}` : "offline"}</div>
             </div>
           ))}
         </div>
@@ -650,7 +641,7 @@ function SensorCard({ item }) {
         <span className="value">{Number(item.value).toFixed(1)}</span>
         <span className="unit">{item.unit}</span>
       </div>
-      <div className="meta">Uppdaterad {formatTime(item.ts)} · {formatAge(item.ts)}</div>
+      <div className="meta">Uppdaterad {formatTime(item.ts)}</div>
     </div>
   );
 }
