@@ -491,7 +491,7 @@ function CostPanel({ kind, cost }) {
   );
 }
 
-function CostRow() {
+function CostRow({ only }) {
   const [cost, setCost] = useState(null);
   useEffect(() => {
     let alive = true;
@@ -500,6 +500,7 @@ function CostRow() {
     const id = setInterval(load, 60000);
     return () => { alive = false; clearInterval(id); };
   }, []);
+  if (only) return <CostPanel kind={only} cost={cost} />;
   return (
     <div className="elpris-row">
       <CostPanel kind="bil" cost={cost} />
@@ -661,6 +662,24 @@ function HeaderClock() {
   const time = new Intl.DateTimeFormat("sv-SE", { timeZone: PRICE_TZ, hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(t);
   const date = new Intl.DateTimeFormat("sv-SE", { timeZone: PRICE_TZ, weekday: "long", day: "numeric", month: "long" }).format(t);
   return <div className="header-clock"><b>{time}</b><span>{date}</span></div>;
+}
+
+// Köksskärmen (?view=kitchen, 1280x800 utan scroll): spotpris, husets förbrukning, husets kostnad och klocka.
+function KitchenView({ electricity, connected }) {
+  return (
+    <div className="kitchen">
+      <header className="kitchen-head">
+        <h1>Hem</h1>
+        <HeaderClock />
+        <span className={`kitchen-dot ${connected ? "up" : "down"}`} title={connected ? "Ansluten" : "Frånkopplad"} />
+      </header>
+      <div className="kitchen-main">
+        <ElectricityPanel electricity={electricity} />
+        <ConsumptionPanel electricity={electricity} />
+      </div>
+      <CostRow only="hus" />
+    </div>
+  );
 }
 
 export default function App() {
@@ -861,6 +880,10 @@ export default function App() {
   useEffect(() => {
     fetch(`${API_BASE}/api/version`).then((r) => r.json()).then(setVersion).catch(() => {});
   }, []);
+
+  if (new URLSearchParams(window.location.search).get("view") === "kitchen") {
+    return <KitchenView electricity={electricity} connected={connected} />;
+  }
 
   return (
     <div className="app">
