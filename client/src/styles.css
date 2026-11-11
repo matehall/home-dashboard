@@ -266,3 +266,6 @@ body:has(.kitchen) { background-attachment: scroll; }
 .clk-knob.sel { fill: var(--warn); stroke: #fff; }
 .clk-chosen { fill: var(--warn); font-family: var(--display); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; }
 .cost-extreme { font-family: var(--mono); font-size: 10px; font-weight: 700; pointer-events: none; stroke: var(--bg); stroke-width: 3px; paint-order: stroke; }
+.elpris-stats b.ex-min { color: #a78bfa; }
+.elpris-stats b.ex-max { color: var(--warn); }
+.clk-extreme { pointer-events: none; }

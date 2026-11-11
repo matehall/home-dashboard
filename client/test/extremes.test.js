@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { markExtremes } from "../src/extremes.js";
+import { markExtremes, findExtremes } from "../src/extremes.js";
 
 test("hittar minsta och största, utan sista (pågående) stapeln", () => {
   // sista stapeln (1) är lägst men pågående och ska inte räknas
@@ -23,4 +23,18 @@ test("alla lika ger null", () => {
 
 test("vid lika värden väljs första", () => {
   assert.deepEqual(markExtremes([3, 3, 8, 8, 1]), { minIdx: 0, maxIdx: 2 });
+});
+
+test("findExtremes räknar med alla värden, även sista", () => {
+  assert.deepEqual(findExtremes([5, 2, 9, 4, 1]), { minIdx: 4, maxIdx: 2 });
+});
+
+test("findExtremes hoppar över null och väljer första vid lika värden", () => {
+  assert.deepEqual(findExtremes([null, 3, 3, 8, 8]), { minIdx: 1, maxIdx: 3 });
+});
+
+test("findExtremes ger null för tom serie, bara null och alla lika", () => {
+  assert.equal(findExtremes([]), null);
+  assert.equal(findExtremes([null, null]), null);
+  assert.equal(findExtremes([4, 4, 4]), null);
 });

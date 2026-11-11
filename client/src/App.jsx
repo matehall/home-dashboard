@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import { LineChart, Line, BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { angleToIndex } from "./clockMath.js";
-import { markExtremes } from "./extremes.js";
+import { markExtremes, findExtremes } from "./extremes.js";
 
 const API_BASE = "";
 const SOCKET_URL = typeof window !== "undefined" ? window.location.origin : "http://192.168.1.8:3000";
@@ -269,6 +269,8 @@ const formatOre = (v) => (v === null || v === undefined ? "–" : `${v.toFixed(1
 
 // Prisklockan: ett dygn som en ring, midnatt överst och medsols. Varje kvart är ett segment vars längd är priset.
 const CLK = { size: 340, c: 170, r0: 80, len: 60 };
+const MIN_COLOR = "#a78bfa";
+const MAX_COLOR = "var(--warn)";
 function polar(r, deg) {
   const a = ((deg - 90) * Math.PI) / 180;
   return [CLK.c + r * Math.cos(a), CLK.c + r * Math.sin(a)];
@@ -285,7 +287,7 @@ function segmentPath(r1, a0, a1) {
 // Generell kvartsklocka: data = [{ ts, v (eller null), past }], colorOf(p) ger segmentfärg. Används för spotpris och förbrukning.
 // Visaren går att flytta genom att peka eller dra var som helst på klockan. Efter SELECT_RESET_MS utan rörelse går den tillbaka till nu.
 const SELECT_RESET_MS = 30000;
-function QuarterClock({ data, now, colorOf, unit, digits = 1, label }) {
+function QuarterClock({ data, now, colorOf, unit, digits = 1, label, extremes = false }) {
   const [selectedTs, setSelectedTs] = useState(null);
   const svgRef = useRef(null);
   const resetRef = useRef(null);
@@ -338,6 +340,7 @@ function QuarterClock({ data, now, colorOf, unit, digits = 1, label }) {
   const onMove = (e) => { if (draggingRef.current) select(e.clientX, e.clientY); };
   const onUp = () => { draggingRef.current = false; };
 
+  const ex = extremes ? findExtremes(data.map((p) => p.v)) : null;
   const selectedIdx = selectedTs === null ? -1 : data.findIndex((p) => p.ts === selectedTs);
   const activeIdx = selectedIdx >= 0 ? selectedIdx : currentIdx;
   const active = activeIdx >= 0 ? data[activeIdx] : null;
@@ -374,6 +377,15 @@ function QuarterClock({ data, now, colorOf, unit, digits = 1, label }) {
         return <text key={h} x={x} y={y} className="clk-hour" textAnchor="middle" dominantBaseline="central">{String(h).padStart(2, "0")}</text>;
       })}
       {segments}
+      {ex && [[ex.minIdx, MIN_COLOR], [ex.maxIdx, MAX_COLOR]].map(([i, c]) => {
+        const [dx, dy] = polar(r1Of(data[i]) + 7, i * step + step / 2);
+        return (
+          <g key={i} className="clk-extreme" style={{ color: c }}>
+            <path d={segmentPath(r1Of(data[i]), i * step + 0.25, (i + 1) * step - 0.25)} fill="none" stroke="currentColor" strokeWidth="2" />
+            <circle cx={dx} cy={dy} r="4" fill="currentColor" stroke="var(--bg)" strokeWidth="1.5" />
+          </g>
+        );
+      })}
       {isSelected && (
         <path d={segmentPath(r1Of(data[selectedIdx]), selectedIdx * step + 0.25, (selectedIdx + 1) * step - 0.25)} className="clk-sel" />
       )}
@@ -399,7 +411,7 @@ function PriceClock({ data, now }) {
     if (p.v >= highLimit) return "var(--warn)";
     return "var(--accent)";
   };
-  return <QuarterClock data={items} now={now} colorOf={colorOf} unit="öre/kWh" label="Elpris per kvart över dygnet" />;
+  return <QuarterClock data={items} now={now} colorOf={colorOf} unit="öre/kWh" label="Elpris per kvart över dygnet" extremes />;
 }
 
 // Förbrukning: de 20 % högsta kvartarna amber, resten cyan; kvartar utan värde (framtid) är tomma.
@@ -409,6 +421,12 @@ function ConsumptionClock({ quarters, now }) {
   const highLimit = vals.length >= 5 ? vals[Math.ceil(vals.length * 0.8) - 1] : Infinity;
   const colorOf = (p) => (p.v >= highLimit ? "var(--warn)" : "var(--accent)");
   return <QuarterClock data={items} now={now} colorOf={colorOf} unit="kW" digits={2} label="Husets förbrukning per kvart över dygnet" />;
+}
+
+// " kl 23:45" för första kvarten med ett visst pris (samma kvart som markeras på klockan), annars tomt.
+function priceTimeOf(data, ore) {
+  const p = data.find((x) => x.ore === ore);
+  return p ? ` kl ${quarterLabel(p.ts)}` : "";
 }
 
 function ElectricityPanel({ electricity }) {
@@ -449,9 +467,9 @@ function ElectricityPanel({ electricity }) {
         <div className="elpris-side">
           {ores.length > 0 && (
             <div className="elpris-stats">
-              <span>Lägst <b>{formatOre(Math.min(...ores))}</b></span>
+              <span>Lägst <b className="ex-min">{formatOre(Math.min(...ores))}</b>{priceTimeOf(data, Math.min(...ores))}</span>
               <span>Medel <b>{formatOre(ores.reduce((a, b) => a + b, 0) / ores.length)}</b></span>
-              <span>Högst <b>{formatOre(Math.max(...ores))}</b></span>
+              <span>Högst <b className="ex-max">{formatOre(Math.max(...ores))}</b>{priceTimeOf(data, Math.max(...ores))}</span>
             </div>
           )}
           {cheapest.length > 0 && (
@@ -480,8 +498,6 @@ const kr = (v) => (v === null || v === undefined ? "–" : `${v.toFixed(2).repla
 
 // Liten stapel med exakt värde vid hover. series: [{ key, label, kr, kwh }]
 // Minsta och största stapeln (utom den pågående perioden) markeras med färg och belopp; övriga dämpas.
-const MIN_COLOR = "#a78bfa";
-const MAX_COLOR = "var(--warn)";
 function CostBars({ title, series, color }) {
   const ex = markExtremes(series.map((d) => d.kr));
   const colorFor = (i) => (ex && i === ex.minIdx ? MIN_COLOR : ex && i === ex.maxIdx ? MAX_COLOR : color);
