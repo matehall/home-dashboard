@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { io } from "socket.io-client";
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import { LineChart, Line, BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import { angleToIndex } from "./clockMath.js";
+import { markExtremes } from "./extremes.js";
 
 const API_BASE = "";
 const SOCKET_URL = typeof window !== "undefined" ? window.location.origin : "http://192.168.1.8:3000";
@@ -281,22 +283,83 @@ function segmentPath(r1, a0, a1) {
 }
 
 // Generell kvartsklocka: data = [{ ts, v (eller null), past }], colorOf(p) ger segmentfärg. Används för spotpris och förbrukning.
+// Visaren går att flytta genom att peka eller dra var som helst på klockan. Efter SELECT_RESET_MS utan rörelse går den tillbaka till nu.
+const SELECT_RESET_MS = 30000;
 function QuarterClock({ data, now, colorOf, unit, digits = 1, label }) {
-  const [hovered, setHovered] = useState(null);
+  const [selectedTs, setSelectedTs] = useState(null);
+  const svgRef = useRef(null);
+  const resetRef = useRef(null);
+  const draggingRef = useRef(false);
+  useEffect(() => () => clearTimeout(resetRef.current), []);
+
   const n = data.length;
-  if (!n) return null;
-  const step = 360 / n;
+  const step = n ? 360 / n : 0;
   const maxV = Math.max(...data.map((p) => p.v ?? 0), 0.001);
   const currentIdx = data.findIndex((p) => p.ts <= now && now < p.ts + QUARTER_MS);
-  const shown = hovered ?? (currentIdx >= 0 ? data[currentIdx] : null);
   const fmt = (v) => (v === null || v === undefined ? "–" : v.toFixed(digits).replace(".", ","));
+  const r1Of = (p) => CLK.r0 + (p.v === null || p.v === undefined ? 2 : Math.max(3, (CLK.len * Math.max(p.v, 0)) / maxV));
 
-  const pointerAngle = currentIdx >= 0 ? currentIdx * step + step / 2 : null;
+  // Segmenten ritas om bara när data ändras, inte när visaren flyttas (viktigt på en Pi 3).
+  const segments = useMemo(
+    () =>
+      data.map((p, i) => {
+        const empty = p.v === null || p.v === undefined;
+        return (
+          <path
+            key={p.ts}
+            d={segmentPath(r1Of(p), i * step + 0.25, (i + 1) * step - 0.25)}
+            fill={empty ? "var(--clk-past)" : colorOf(p)}
+            className={`clk-seg${i === currentIdx ? " now" : ""}${empty ? " empty" : ""}`}
+          >
+            <title>{`${quarterLabel(p.ts)}  ${empty ? "ingen data" : `${fmt(p.v)} ${unit}`}`}</title>
+          </path>
+        );
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [data, colorOf, currentIdx, unit, digits],
+  );
+
+  if (!n) return null;
+
+  const select = (clientX, clientY) => {
+    const el = svgRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const idx = angleToIndex(clientX - (r.left + r.width / 2), clientY - (r.top + r.height / 2), n);
+    setSelectedTs(data[idx].ts);
+    clearTimeout(resetRef.current);
+    resetRef.current = setTimeout(() => setSelectedTs(null), SELECT_RESET_MS);
+  };
+  const onDown = (e) => {
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    draggingRef.current = true;
+    select(e.clientX, e.clientY);
+  };
+  const onMove = (e) => { if (draggingRef.current) select(e.clientX, e.clientY); };
+  const onUp = () => { draggingRef.current = false; };
+
+  const selectedIdx = selectedTs === null ? -1 : data.findIndex((p) => p.ts === selectedTs);
+  const activeIdx = selectedIdx >= 0 ? selectedIdx : currentIdx;
+  const active = activeIdx >= 0 ? data[activeIdx] : null;
+  const isSelected = selectedIdx >= 0 && selectedIdx !== currentIdx;
+
+  const pointerAngle = activeIdx >= 0 ? activeIdx * step + step / 2 : null;
   const [px0, py0] = pointerAngle === null ? [0, 0] : polar(CLK.r0 - 10, pointerAngle);
   const [px1, py1] = pointerAngle === null ? [0, 0] : polar(CLK.r0 + CLK.len + 8, pointerAngle);
+  const [kx, ky] = pointerAngle === null ? [0, 0] : polar(CLK.r0 + CLK.len + 8, pointerAngle);
 
   return (
-    <svg className="price-clock" viewBox={`0 0 ${CLK.size} ${CLK.size}`} role="img" aria-label={label}>
+    <svg
+      ref={svgRef}
+      className="price-clock"
+      viewBox={`0 0 ${CLK.size} ${CLK.size}`}
+      role="img"
+      aria-label={label}
+      onPointerDown={onDown}
+      onPointerMove={onMove}
+      onPointerUp={onUp}
+      onPointerCancel={onUp}
+    >
       {[0.25, 0.5, 0.75, 1].map((f) => (
         <circle key={f} cx={CLK.c} cy={CLK.c} r={CLK.r0 + CLK.len * f} className="clk-grid" />
       ))}
@@ -310,27 +373,15 @@ function QuarterClock({ data, now, colorOf, unit, digits = 1, label }) {
         const [x, y] = polar(CLK.r0 + CLK.len + 22, h * 15);
         return <text key={h} x={x} y={y} className="clk-hour" textAnchor="middle" dominantBaseline="central">{String(h).padStart(2, "0")}</text>;
       })}
-      {data.map((p, i) => {
-        const empty = p.v === null || p.v === undefined;
-        const r1 = CLK.r0 + (empty ? 2 : Math.max(3, (CLK.len * Math.max(p.v, 0)) / maxV));
-        const isNow = i === currentIdx;
-        return (
-          <path
-            key={p.ts}
-            d={segmentPath(r1, i * step + 0.25, (i + 1) * step - 0.25)}
-            fill={empty ? "var(--clk-past)" : colorOf(p)}
-            className={`clk-seg${isNow ? " now" : ""}${hovered?.ts === p.ts ? " hover" : ""}${empty ? " empty" : ""}`}
-            onMouseEnter={() => setHovered(p)}
-            onMouseLeave={() => setHovered(null)}
-            onClick={() => setHovered((h) => (h?.ts === p.ts ? null : p))}
-          >
-            <title>{`${quarterLabel(p.ts)}  ${empty ? "ingen data" : `${fmt(p.v)} ${unit}`}`}</title>
-          </path>
-        );
-      })}
-      {pointerAngle !== null && <line x1={px0} y1={py0} x2={px1} y2={py1} className="clk-pointer" />}
-      <text x={CLK.c} y={CLK.c - 22} className="clk-time" textAnchor="middle">{shown ? quarterLabel(shown.ts) : ""}</text>
-      <text x={CLK.c} y={CLK.c + 8} className="clk-price" textAnchor="middle">{shown ? fmt(shown.v) : "–"}</text>
+      {segments}
+      {isSelected && (
+        <path d={segmentPath(r1Of(data[selectedIdx]), selectedIdx * step + 0.25, (selectedIdx + 1) * step - 0.25)} className="clk-sel" />
+      )}
+      {pointerAngle !== null && <line x1={px0} y1={py0} x2={px1} y2={py1} className={`clk-pointer${isSelected ? " sel" : ""}`} />}
+      {pointerAngle !== null && <circle cx={kx} cy={ky} r={isSelected ? 8 : 5} className={`clk-knob${isSelected ? " sel" : ""}`} />}
+      {isSelected && <text x={CLK.c} y={CLK.c - 42} className="clk-chosen" textAnchor="middle">Vald</text>}
+      <text x={CLK.c} y={CLK.c - 22} className="clk-time" textAnchor="middle">{active ? quarterLabel(active.ts) : ""}</text>
+      <text x={CLK.c} y={CLK.c + 8} className="clk-price" textAnchor="middle">{active ? fmt(active.v) : "–"}</text>
       <text x={CLK.c} y={CLK.c + 28} className="clk-unit" textAnchor="middle">{unit}</text>
     </svg>
   );
@@ -428,12 +479,28 @@ function ElectricityPanel({ electricity }) {
 const kr = (v) => (v === null || v === undefined ? "–" : `${v.toFixed(2).replace(".", ",")} kr`);
 
 // Liten stapel med exakt värde vid hover. series: [{ key, label, kr, kwh }]
+// Minsta och största stapeln (utom den pågående perioden) markeras med färg och belopp; övriga dämpas.
+const MIN_COLOR = "#a78bfa";
+const MAX_COLOR = "var(--warn)";
 function CostBars({ title, series, color }) {
+  const ex = markExtremes(series.map((d) => d.kr));
+  const colorFor = (i) => (ex && i === ex.minIdx ? MIN_COLOR : ex && i === ex.maxIdx ? MAX_COLOR : color);
+  const renderLabel = ({ x, y, width, index }) => {
+    if (!ex || (index !== ex.minIdx && index !== ex.maxIdx)) return null;
+    const isMin = index === ex.minIdx;
+    const edge = index < series.length * 0.2 ? "start" : index > series.length * 0.8 ? "end" : "middle";
+    const tx = edge === "start" ? x : edge === "end" ? x + width : x + width / 2;
+    return (
+      <text x={tx} y={y - 3} textAnchor={edge} className="cost-extreme" fill={isMin ? MIN_COLOR : MAX_COLOR}>
+        {`${isMin ? "min" : "max"} ${series[index].kr.toFixed(2).replace(".", ",")}`}
+      </text>
+    );
+  };
   return (
     <div className="cost-bars">
       <h4 className="modal-h">{title}</h4>
       <ResponsiveContainer width="100%" height={80}>
-        <BarChart data={series} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
+        <BarChart data={series} margin={{ top: 14, right: 0, left: 0, bottom: 0 }}>
           <XAxis dataKey="label" hide />
           <YAxis hide domain={[0, "auto"]} />
           <Tooltip
@@ -449,7 +516,11 @@ function CostBars({ title, series, color }) {
               );
             }}
           />
-          <Bar dataKey="kr" fill={color} radius={[2, 2, 0, 0]} isAnimationActive={false} />
+          <Bar dataKey="kr" radius={[2, 2, 0, 0]} isAnimationActive={false} label={renderLabel}>
+            {series.map((d, i) => (
+              <Cell key={d.key} fill={colorFor(i)} fillOpacity={!ex || i === ex.minIdx || i === ex.maxIdx ? 1 : 0.55} />
+            ))}
+          </Bar>
         </BarChart>
       </ResponsiveContainer>
     </div>

@@ -250,10 +250,19 @@ button, select { font: inherit; letter-spacing: .06em; }
 .kitchen .elpris-side { flex: 1 1 0; min-width: 0; gap: 10px; }
 .kitchen .elpris-stats { font-size: .75rem; gap: 2px 14px; }
 .kitchen .cost-panel { flex: 1 1 auto; min-height: 0; }
-.kitchen .clk-seg { cursor: none; }
 
 /* Köksvyn körs på en Pi 3: inga filter, glöd eller övergångar som tvingar dyr omritning. */
 body:has(.kitchen) { background-attachment: scroll; }
 .kitchen *, .kitchen *::before, .kitchen *::after { transition: none !important; animation: none !important; text-shadow: none !important; }
 .kitchen .clk-core, .kitchen .clk-seg.now, .kitchen .clk-pointer, .kitchen .clk-price, .kitchen .clk-seg:hover, .kitchen .clk-seg.hover { filter: none; }
 .kitchen .card, .kitchen .kitchen-dot { box-shadow: none; }
+
+/* Flyttbar visare: hela klockan är träffyta */
+.price-clock { touch-action: none; user-select: none; -webkit-user-select: none; cursor: pointer; }
+.clk-seg { cursor: inherit; }
+.clk-sel { fill: none; stroke: #fff; stroke-width: 2; pointer-events: none; }
+.clk-pointer.sel { stroke: var(--warn); stroke-width: 3; }
+.clk-knob { fill: #fff; stroke: var(--bg); stroke-width: 1.5; pointer-events: none; }
+.clk-knob.sel { fill: var(--warn); stroke: #fff; }
+.clk-chosen { fill: var(--warn); font-family: var(--display); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; }
+.cost-extreme { font-family: var(--mono); font-size: 10px; font-weight: 700; pointer-events: none; stroke: var(--bg); stroke-width: 3px; paint-order: stroke; }
