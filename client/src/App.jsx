@@ -653,24 +653,35 @@ function SensorCard({ item }) {
   );
 }
 
-function HeaderClock() {
+function HeaderClock({ seconds = true }) {
   const [t, setT] = useState(() => new Date());
   useEffect(() => {
-    const id = setInterval(() => setT(new Date()), 1000);
+    const id = setInterval(() => setT(new Date()), seconds ? 1000 : 15000);
     return () => clearInterval(id);
   }, []);
-  const time = new Intl.DateTimeFormat("sv-SE", { timeZone: PRICE_TZ, hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(t);
+  const time = new Intl.DateTimeFormat("sv-SE", { timeZone: PRICE_TZ, hour: "2-digit", minute: "2-digit", ...(seconds ? { second: "2-digit" } : {}) }).format(t);
   const date = new Intl.DateTimeFormat("sv-SE", { timeZone: PRICE_TZ, weekday: "long", day: "numeric", month: "long" }).format(t);
   return <div className="header-clock"><b>{time}</b><span>{date}</span></div>;
 }
 
 // Köksskärmen (?view=kitchen, 1280x800 utan scroll): spotpris, husets förbrukning, husets kostnad och klocka.
 function KitchenView({ electricity, connected }) {
+  // Ingen tangentbord eller mus i köket: ladda om sidan själv när anslutningen varit nere en stund eller nätet kommer tillbaka.
+  useEffect(() => {
+    if (connected) return undefined;
+    const id = setTimeout(() => window.location.reload(), 60000);
+    return () => clearTimeout(id);
+  }, [connected]);
+  useEffect(() => {
+    const reload = () => window.location.reload();
+    window.addEventListener("online", reload);
+    return () => window.removeEventListener("online", reload);
+  }, []);
   return (
     <div className="kitchen">
       <header className="kitchen-head">
         <h1>Hem</h1>
-        <HeaderClock />
+        <HeaderClock seconds={false} />
         <span className={`kitchen-dot ${connected ? "up" : "down"}`} title={connected ? "Ansluten" : "Frånkopplad"} />
       </header>
       <div className="kitchen-main">
