@@ -251,3 +251,9 @@ button, select { font: inherit; letter-spacing: .06em; }
 .kitchen .elpris-stats { font-size: .75rem; gap: 2px 14px; }
 .kitchen .cost-panel { flex: 1 1 auto; min-height: 0; }
 .kitchen .clk-seg { cursor: none; }
+
+/* Köksvyn körs på en Pi 3: inga filter, glöd eller övergångar som tvingar dyr omritning. */
+body:has(.kitchen) { background-attachment: scroll; }
+.kitchen *, .kitchen *::before, .kitchen *::after { transition: none !important; animation: none !important; text-shadow: none !important; }
+.kitchen .clk-core, .kitchen .clk-seg.now, .kitchen .clk-pointer, .kitchen .clk-price, .kitchen .clk-seg:hover, .kitchen .clk-seg.hover { filter: none; }
+.kitchen .card, .kitchen .kitchen-dot { box-shadow: none; }
