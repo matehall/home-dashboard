@@ -7,3 +7,4 @@ server/data/
 
 # Designinspiration (Adobe Stock-förhandsvisningar), ska inte committas
 inspiration/
+.preview-data/
