@@ -250,6 +250,22 @@ button, select { font: inherit; letter-spacing: .06em; }
 .kitchen .elpris-side { flex: 1 1 0; min-width: 0; gap: 10px; }
 .kitchen .elpris-stats { font-size: .75rem; gap: 2px 14px; }
 .kitchen .cost-panel { flex: 1 1 auto; min-height: 0; }
+.kitchen-bottom { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; flex: 1 1 auto; min-height: 0; }
+.kitchen-bottom > .card { overflow: hidden; }
+.kitchen .cost-panel .cost-charts { grid-template-columns: 1fr; }
+.kitchen-ev, .kitchen-temps { display: flex; flex-direction: column; gap: 6px; margin-top: 0; }
+.kitchen-ev .ev-state { min-width: 0; }
+.kev-power { font-variant-numeric: tabular-nums; color: color-mix(in srgb, var(--accent) 60%, #fff); line-height: 1; }
+.kev-power b { font-size: 3rem; font-weight: 700; }
+.kev-power small { font-size: 1rem; color: var(--muted); }
+.kev-row { display: flex; justify-content: space-between; align-items: baseline; font-variant-numeric: tabular-nums; }
+.kev-row b { color: #fff; font-size: .95rem; }
+.kev-reason { margin-top: auto; padding-top: 6px; border-top: 1px solid var(--line); font-size: .8rem; color: var(--warn); min-height: 1.3em; }
+.temp-row { display: flex; justify-content: space-between; align-items: baseline; padding: 6px 0; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+.temp-row:last-child { border-bottom: 0; }
+.temp-name { color: var(--muted); text-transform: uppercase; letter-spacing: .1em; font-size: .8rem; }
+.temp-val { color: #fff; font-size: 2.2rem; font-weight: 700; line-height: 1.1; }
+.temp-val small { color: var(--muted); font-size: .9rem; }
 
 /* Köksvyn körs på en Pi 3: inga filter, glöd eller övergångar som tvingar dyr omritning. */
 body:has(.kitchen) { background-attachment: scroll; }

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { evLimitReason } from "./evLimit.js";
 import { io } from "socket.io-client";
 import { LineChart, Line, BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { angleToIndex } from "./clockMath.js";
@@ -544,7 +545,7 @@ function CostBars({ title, series, color }) {
 }
 
 // Kostnad för bil eller hus (hus = totalt minus bil). kind: "bil" | "hus".
-function CostPanel({ kind, cost }) {
+function CostPanel({ kind, cost, compact = false }) {
   const color = kind === "bil" ? "var(--accent)" : "var(--ok)";
   const pick = (pt) => pt?.[kind] ?? null;
   const toSeries = (arr, label) => (arr ?? []).map((pt) => ({
@@ -554,24 +555,24 @@ function CostPanel({ kind, cost }) {
   const monthLabel = (k) => new Date(`${k}-01T12:00:00`).toLocaleDateString("sv-SE", { month: "long", year: "numeric" });
   const title = kind === "bil" ? "Elbil" : "Hus (utan bil)";
   if (!cost) return <div className="card cost-panel"><span className="meta">Laddar kostnad…</span></div>;
-  const incomplete = cost.today.incomplete || cost.month.incomplete;
+  const incomplete = cost.today.incomplete || (!compact && cost.month.incomplete);
   return (
     <div className="card cost-panel" style={{ "--accent": color }}>
       <span className="meta">Kostnad {title}{incomplete && " (spotpris saknas för vissa kvartar)"}</span>
       <div className="cost-nums">
         <div><span className="meta">Idag</span><div className="elpris-now">{kr(pick(cost.today)?.kr ?? null)}</div></div>
-        <div><span className="meta">Månaden</span><div className="elpris-now">{kr(pick(cost.month)?.kr ?? null)}</div></div>
+        {!compact && <div><span className="meta">Månaden</span><div className="elpris-now">{kr(pick(cost.month)?.kr ?? null)}</div></div>}
       </div>
       <div className="cost-charts">
         <CostBars title="Per dag (30 d)" series={toSeries(cost.days, dayLabel)} color={color} />
-        <CostBars title="Per månad" series={toSeries(cost.months, monthLabel)} color={color} />
-        <CostBars title="Per år" series={toSeries(cost.years, (k) => k)} color={color} />
+        {!compact && <CostBars title="Per månad" series={toSeries(cost.months, monthLabel)} color={color} />}
+        {!compact && <CostBars title="Per år" series={toSeries(cost.years, (k) => k)} color={color} />}
       </div>
     </div>
   );
 }
 
-function CostRow({ only }) {
+function CostRow({ only, compact = false }) {
   const [cost, setCost] = useState(null);
   useEffect(() => {
     let alive = true;
@@ -580,7 +581,7 @@ function CostRow({ only }) {
     const id = setInterval(load, 60000);
     return () => { alive = false; clearInterval(id); };
   }, []);
-  if (only) return <CostPanel kind={only} cost={cost} />;
+  if (only) return <CostPanel kind={only} cost={cost} compact={compact} />;
   return (
     <div className="elpris-row">
       <CostPanel kind="bil" cost={cost} />
@@ -748,8 +749,53 @@ function HeaderClock({ seconds = true }) {
   return <div className="header-clock"><b>{time}</b><span>{date}</span></div>;
 }
 
-// Köksskärmen (?view=kitchen, 1280x800 utan scroll): spotpris, husets förbrukning, husets kostnad och klocka.
-function KitchenView({ electricity, connected }) {
+// Köksvyns laddpanel: status, effekt och (härledd) orsak till att effekten är som den är.
+function KitchenEvPanel({ ev }) {
+  if (!ev) return <div className="card kitchen-ev"><span className="meta">Ingen laddboxdata än</span></div>;
+  const state = CHARGING_STATES[ev.charging_state] ?? `Kod ${ev.charging_state}`;
+  const tone = ev.charging_state === 2 ? "charging" : ev.charging_state === 4 ? "error" : "idle";
+  const reason = evLimitReason(ev);
+  return (
+    <div className={`card kitchen-ev ev-panel ${tone}`}>
+      <span className="meta">Elbil laddning</span>
+      <div className="ev-state">
+        <span className="ev-dot" />
+        <span className="ev-status">{state}</span>
+      </div>
+      <div className="kev-power"><b>{Number(ev.power_kw).toFixed(1).replace(".", ",")}</b><small> kW</small></div>
+      <div className="kev-row"><span className="meta">Session</span><b>{Number(ev.energy_kwh).toFixed(1).replace(".", ",")} kWh</b></div>
+      <div className="kev-row"><span className="meta">Kabel</span><b>{yesNo(ev.is_lock, "Låst", "Olåst")}</b></div>
+      <div className="kev-reason" title="Härledd ur laddboxens gränser och uppmätt ström">{reason ? reason.text : "\u00a0"}</div>
+    </div>
+  );
+}
+
+const KITCHEN_TEMPS = [
+  ["panntemp", "Panna"],
+  ["rok_temp", "Rök"],
+  ["utetemperatur", "Ute"],
+];
+
+function TempPanel({ latest }) {
+  return (
+    <div className="card kitchen-temps">
+      <span className="meta">Temperaturer</span>
+      {KITCHEN_TEMPS.map(([sensor, name]) => {
+        const item = latest?.[sensor];
+        const v = item && Number.isFinite(Number(item.value)) ? Number(item.value).toFixed(1).replace(".", ",") : "–";
+        return (
+          <div key={sensor} className="temp-row">
+            <span className="temp-name">{name}</span>
+            <span className="temp-val">{v}<small> °C</small></span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// Köksskärmen (?view=kitchen, 1280x800 utan scroll): spotpris, husets förbrukning, och en rad med husets dagskostnad, laddning och temperaturer.
+function KitchenView({ electricity, connected, ev, latest }) {
   // Ingen tangentbord eller mus i köket: ladda om sidan själv när anslutningen varit nere en stund eller nätet kommer tillbaka.
   useEffect(() => {
     if (connected) return undefined;
@@ -772,7 +818,11 @@ function KitchenView({ electricity, connected }) {
         <ElectricityPanel electricity={electricity} />
         <ConsumptionPanel electricity={electricity} />
       </div>
-      <CostRow only="hus" />
+      <div className="kitchen-bottom">
+        <CostRow only="hus" compact />
+        <KitchenEvPanel ev={ev} />
+        <TempPanel latest={latest} />
+      </div>
     </div>
   );
 }
@@ -977,7 +1027,7 @@ export default function App() {
   }, []);
 
   if (new URLSearchParams(window.location.search).get("view") === "kitchen") {
-    return <KitchenView electricity={electricity} connected={connected} />;
+    return <KitchenView electricity={electricity} connected={connected} ev={ev} latest={latest} />;
   }
 
   return (
