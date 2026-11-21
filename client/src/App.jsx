@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { evLimitReason } from "./evLimit.js";
-import { fraction, litCount, arcTicks, gaugeMaxKw, TEMP_SCALES, tempTone, stackPath } from "./gauge.js";
+import { fraction, litCount, arcTicks, gaugeMaxKw, TEMP_SCALES, stackPath } from "./gauge.js";
+import { trendOf, TREND_CFG } from "./trend.js";
 import { io } from "socket.io-client";
 import { LineChart, Line, BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { angleToIndex } from "./clockMath.js";
@@ -858,8 +859,44 @@ const KITCHEN_TEMPS = [
   ["utetemperatur", "Ute"],
 ];
 const TEMP_SEGS = 24;
+const TREND_REFRESH_MS = 30000;
+const TREND_ARROWS = { up: "▲", down: "▼", flat: "–" };
+
+// Trend per givare (upp/ner/stilla/null) ur de senaste minuternas historik. Se trend.js för metoden.
+// Hysterestillståndet (föregående trend) hålls i en ref så att färgen inte flackar mellan beräkningarna.
+function useTrends(sensors) {
+  const [trends, setTrends] = useState({});
+  const prev = useRef({});
+  useEffect(() => {
+    let alive = true;
+    const load = async () => {
+      const now = Date.now();
+      const next = {};
+      await Promise.all(sensors.map(async (sensor) => {
+        const cfg = TREND_CFG[sensor];
+        try {
+          const res = await fetch(`${API_BASE}/api/history?sensor=${encodeURIComponent(sensor)}&from=${now - cfg.baseFromMs - 60000}&to=${now}&resolution=raw`);
+          const rows = ((await res.json()).raw ?? []).map((r) => ({ ts: r.ts, value: Number(r.value) }));
+          next[sensor] = trendOf(rows, now, cfg, prev.current[sensor] ?? null);
+        } catch {
+          next[sensor] = prev.current[sensor] ?? null; // nätfel: behåll senast kända trend
+        }
+      }));
+      if (!alive) return;
+      prev.current = next;
+      setTrends(next);
+    };
+    load();
+    const id = setInterval(load, TREND_REFRESH_MS);
+    return () => { alive = false; clearInterval(id); };
+  }, []);
+  return trends;
+}
+
+const TEMP_SENSORS = KITCHEN_TEMPS.map(([sensor]) => sensor);
 
 function TempPanel({ latest }) {
+  const trends = useTrends(TEMP_SENSORS);
   return (
     <div className="card kitchen-temps">
       <span className="meta">Temperaturer</span>
@@ -869,11 +906,15 @@ function TempPanel({ latest }) {
         const has = Number.isFinite(raw);
         const sc = TEMP_SCALES[sensor];
         const lit = has ? litCount(fraction(raw, sc.min, sc.max), TEMP_SEGS) : 0;
+        const trend = has ? trends[sensor] ?? null : null;
         return (
-          <div key={sensor} className={`temp-row tone-${has ? tempTone(sensor, raw) : "off"}`}>
+          <div key={sensor} className={`temp-row trend-${has ? trend ?? "flat" : "off"}`}>
             <div className="temp-top">
               <span className="temp-name">{name}</span>
-              <span className="temp-val">{has ? raw.toFixed(1).replace(".", ",") : "–"}<small> °C</small></span>
+              <span className="temp-val">
+                {trend && <i className="temp-arrow" aria-label={trend === "up" ? "stiger" : trend === "down" ? "sjunker" : "stilla"}>{TREND_ARROWS[trend]}</i>}
+                {has ? raw.toFixed(1).replace(".", ",") : "–"}<small> °C</small>
+              </span>
             </div>
             <div className="temp-bar" aria-hidden="true">
               {Array.from({ length: TEMP_SEGS }, (_, i) => <i key={i} className={i < lit ? "on" : undefined} />)}

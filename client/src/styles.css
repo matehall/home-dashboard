@@ -288,9 +288,10 @@ button, select { font: inherit; letter-spacing: .06em; }
 /* Panel 3: temperaturer med segmenterad skala */
 .kitchen-temps { justify-content: space-around; }
 .temp-row { --tc: var(--accent); display: flex; flex-direction: column; gap: 4px; }
-.temp-row.tone-warn { --tc: var(--warn); }
-.temp-row.tone-bad { --tc: var(--bad); }
-.temp-row.tone-off { --tc: #4b5b66; }
+.temp-row.trend-up { --tc: var(--ok); }
+.temp-row.trend-down { --tc: var(--bad); }
+.temp-row.trend-off { --tc: #4b5b66; }
+.temp-arrow { font-style: normal; font-size: .9rem; margin-right: 8px; vertical-align: middle; color: var(--tc); }
 .temp-top { display: flex; justify-content: space-between; align-items: baseline; font-variant-numeric: tabular-nums; }
 .temp-name { color: var(--muted); font-family: var(--display); text-transform: uppercase; letter-spacing: .14em; font-size: .75rem; }
 .temp-val { color: #fff; font-family: var(--display); font-size: 2rem; font-weight: 700; line-height: 1.1; }

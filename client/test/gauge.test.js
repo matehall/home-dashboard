@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { fraction, litCount, arcTicks, gaugeMaxKw, tempTone, stackPath } from "../src/gauge.js";
+import { fraction, litCount, arcTicks, gaugeMaxKw, stackPath } from "../src/gauge.js";
 
 test("fraction klämmer till 0..1 och ger null utan värde", () => {
   assert.equal(fraction(45, 0, 90), 0.5);
@@ -31,14 +31,6 @@ test("gaugeMaxKw: trefas 16 A är cirka 11 kW, enfas 16 A cirka 3,7 kW, fallback
   assert.ok(Math.abs(gaugeMaxKw({ current_limit_a: 16, phase_charging: 1 }) - 3.68) < 0.01);
   assert.equal(gaugeMaxKw({}), 11);
   assert.equal(gaugeMaxKw(null), 11);
-});
-
-test("tempTone: pann varnar och larmar, ute är alltid ok, saknat värde är ok", () => {
-  assert.equal(tempTone("panntemp", 60), "ok");
-  assert.equal(tempTone("panntemp", 80), "warn");
-  assert.equal(tempTone("panntemp", 88), "bad");
-  assert.equal(tempTone("utetemperatur", 30), "ok");
-  assert.equal(tempTone("panntemp", null), "ok");
 });
 
 test("stackPath: ett segment per tänd rad och tomt utan värde", () => {
