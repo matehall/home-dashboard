@@ -34,21 +34,12 @@ export function gaugeMaxKw(ev) {
   return (phases * 230 * Math.min(...limits)) / 1000;
 }
 
-// Skala och varningsgränser per temperaturgivare. warn/bad = null betyder att färgen alltid är accent.
+// Skala (min/max) för stapellängden per temperaturgivare. Färgen styrs av trenden (trend.js), inte av värdet.
 export const TEMP_SCALES = {
-  panntemp: { min: 0, max: 90, warn: 75, bad: 85 },
-  rok_temp: { min: 0, max: 300, warn: 220, bad: 270 },
-  utetemperatur: { min: -25, max: 35, warn: null, bad: null },
+  panntemp: { min: 0, max: 90 },
+  rok_temp: { min: 0, max: 300 },
+  utetemperatur: { min: -25, max: 35 },
 };
-
-// "ok" | "warn" | "bad" för en temperatur.
-export function tempTone(sensor, value) {
-  const s = TEMP_SCALES[sensor];
-  if (!s || value === null || value === undefined) return "ok";
-  if (s.bad !== null && value >= s.bad) return "bad";
-  if (s.warn !== null && value >= s.warn) return "warn";
-  return "ok";
-}
 
 // SVG-path med n staplars segment (stack av små liggande rektanglar) för en stapel med höjdandel frac.
 // Segmenten räknas nerifrån och upp. x, w = stapelns läge och bredd; h = totalhöjd; rows = antal segment; gap = glapp.
