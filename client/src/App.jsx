@@ -568,23 +568,31 @@ function DayBars({ series, color }) {
     const tx = anchor === "start" ? i * step : anchor === "end" ? (i + 1) * step : x;
     return <text key={txt} x={tx} y={10} textAnchor={anchor} className="cost-extreme" fill={c}>{txt}</text>;
   };
+  // Dagens stapel ligger i en egen <svg> ovanpå, så att pulsen (opacity) går i ett eget lager.
+  // Animation på ett element inuti en SVG ritar om hela SVG:n varje bildruta (mätt: ~100 % CPU på Pi 3).
+  const viewBox = `0 0 ${DB_W} ${DB_H + DB_TOP}`;
+  const bar = (d, i) => {
+    const c = ex && i === ex.minIdx ? MIN_COLOR : ex && i === ex.maxIdx ? MAX_COLOR : color;
+    const dim = !ex || i === ex.minIdx || i === ex.maxIdx || i === n - 1 ? 1 : 0.55;
+    return (
+      <path key={d.key} d={stackPath(i * step + (step - w) / 2, w, DB_H, 12, d.kr === null ? null : d.kr / max)}
+        fill={c} fillOpacity={dim} />
+    );
+  };
   return (
-    <svg className="day-bars" viewBox={`0 0 ${DB_W} ${DB_H + DB_TOP}`} role="img" aria-label="Kostnad per dag, 30 dagar">
-      <g transform={`translate(0 ${DB_TOP})`}>
-        {series.map((d, i) => {
-          const isLast = i === n - 1;
-          const c = ex && i === ex.minIdx ? MIN_COLOR : ex && i === ex.maxIdx ? MAX_COLOR : color;
-          const dim = !ex || i === ex.minIdx || i === ex.maxIdx || isLast ? 1 : 0.55;
-          return (
-            <path key={d.key} d={stackPath(i * step + (step - w) / 2, w, DB_H, 12, d.kr === null ? null : d.kr / max)}
-              fill={c} fillOpacity={dim} className={isLast ? "fx day-now" : undefined} />
-          );
-        })}
-        <line x1="0" x2={DB_W} y1={DB_H + 0.5} y2={DB_H + 0.5} className="day-base" />
-      </g>
-      {ex && label(ex.minIdx, MIN_COLOR, `min ${series[ex.minIdx].kr.toFixed(2).replace(".", ",")}`)}
-      {ex && label(ex.maxIdx, MAX_COLOR, `max ${series[ex.maxIdx].kr.toFixed(2).replace(".", ",")}`)}
-    </svg>
+    <div className="day-bars">
+      <svg viewBox={viewBox} role="img" aria-label="Kostnad per dag, 30 dagar">
+        <g transform={`translate(0 ${DB_TOP})`}>
+          {series.slice(0, -1).map((d, i) => bar(d, i))}
+          <line x1="0" x2={DB_W} y1={DB_H + 0.5} y2={DB_H + 0.5} className="day-base" />
+        </g>
+        {ex && label(ex.minIdx, MIN_COLOR, `min ${series[ex.minIdx].kr.toFixed(2).replace(".", ",")}`)}
+        {ex && label(ex.maxIdx, MAX_COLOR, `max ${series[ex.maxIdx].kr.toFixed(2).replace(".", ",")}`)}
+      </svg>
+      <svg viewBox={viewBox} className="fx day-now" aria-hidden="true">
+        <g transform={`translate(0 ${DB_TOP})`}>{bar(series[n - 1], n - 1)}</g>
+      </svg>
+    </div>
   );
 }
 
@@ -806,16 +814,21 @@ function HeaderClock({ seconds = true }) {
 // Mätare: 40 streck i en 240-gradersbåge, tända upp till frac. Ringen runt snurrar när bilen laddar.
 const GAUGE_N = 40;
 const GAUGE_TICKS = arcTicks(GAUGE_N, -120, 120, 72, 90, 100, 100);
+// Ringen ligger i en egen <svg> (eget lager) eftersom animation inuti en SVG ritar om hela SVG:n varje bildruta.
 function ArcGauge({ frac, active, tone, children }) {
   const lit = litCount(frac, GAUGE_N);
   return (
-    <svg className={`arc-gauge ${tone}`} viewBox="0 0 200 200" aria-hidden="true">
-      <circle cx="100" cy="100" r="97" className={`gauge-ring${active ? " fx gauge-spin" : ""}`} />
-      {GAUGE_TICKS.map((t, i) => (
-        <line key={i} x1={t.x1} y1={t.y1} x2={t.x2} y2={t.y2} className={i < lit ? "g-on" : "g-off"} />
-      ))}
-      {children}
-    </svg>
+    <div className={`arc-gauge-wrap ${tone}`}>
+      <svg className={`arc-ring${active ? " fx gauge-spin" : ""}`} viewBox="0 0 200 200" aria-hidden="true">
+        <circle cx="100" cy="100" r="97" />
+      </svg>
+      <svg className="arc-gauge" viewBox="0 0 200 200" aria-hidden="true">
+        {GAUGE_TICKS.map((t, i) => (
+          <line key={i} x1={t.x1} y1={t.y1} x2={t.x2} y2={t.y2} className={i < lit ? "g-on" : "g-off"} />
+        ))}
+        {children}
+      </svg>
+    </div>
   );
 }
 
