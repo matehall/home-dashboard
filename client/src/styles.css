@@ -301,13 +301,14 @@ button, select { font: inherit; letter-spacing: .06em; }
 .temp-bar i.on { background: var(--tc); }
 .temp-sweep { position: absolute; top: 0; bottom: 0; left: 0; width: 18%; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .55), transparent); transform: translateX(-120%); }
 
-/* Animationer (bara transform och opacity, få element): undantas från spärren nedan med klassen fx */
+/* Animationer: bara transform och opacity, få element, och med steps() så att de ger få bildrutor (mätt på Pi 3:
+   jämna animationer kostar ~100 % CPU per styck, tickande med 2-13 bildrutor/s nästan ingenting). Undantas från spärren nedan med klassen fx */
 @keyframes gauge-spin { to { transform: rotate(360deg); } }
 @keyframes temp-sweep { 0%, 70% { transform: translateX(-120%); } 100% { transform: translateX(660%); } }
 @keyframes day-now { 50% { opacity: .45; } }
-.fx.gauge-spin { transform-box: fill-box; transform-origin: center; animation: gauge-spin 24s linear infinite; }
-.fx.temp-sweep { animation: temp-sweep 5s ease-in-out infinite; }
-.fx.day-now { animation: day-now 2.4s ease-in-out infinite; }
+.fx.gauge-spin { transform-box: fill-box; transform-origin: center; animation: gauge-spin 24s steps(48, end) infinite; }
+.fx.temp-sweep { animation: temp-sweep 5s steps(20, end) infinite; }
+.fx.day-now { animation: day-now 2.4s steps(1, end) infinite; }
 
 /* Köksvyn körs på en Pi 3: inga filter, glöd eller övergångar som tvingar dyr omritning. */
 body:has(.kitchen) { background-attachment: scroll; }
