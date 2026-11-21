@@ -902,7 +902,7 @@ function KitchenView({ electricity, connected, ev, latest }) {
   return (
     <div className="kitchen">
       <header className="kitchen-head">
-        <h1>Hem</h1>
+        <h1 className="kitchen-title" onClick={() => window.location.reload()}>Hem</h1>
         <HeaderClock seconds={false} />
         <span className={`kitchen-dot ${connected ? "up" : "down"}`} title={connected ? "Ansluten" : "Frånkopplad"} />
       </header>

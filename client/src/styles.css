@@ -241,6 +241,8 @@ button, select { font: inherit; letter-spacing: .06em; }
 .kitchen-head { display: flex; align-items: center; gap: 16px; border-bottom: 1px solid var(--line); padding-bottom: 6px; }
 .kitchen-head h1 { font-family: var(--display); margin: 0; font-size: 1.1rem; letter-spacing: .1em; text-transform: uppercase; color: #fff; }
 .kitchen-dot { width: 10px; height: 10px; border-radius: 50%; background: currentColor; box-shadow: 0 0 8px currentColor; }
+/* Ladda om för hand: tryck på rubriken (osynlig, men med stor träffyta för fingret) */
+.kitchen-title { cursor: pointer; padding: 10px 24px 10px 0; margin: -10px 0; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
 .kitchen-dot.up { color: var(--ok); }
 .kitchen-dot.down { color: var(--bad); }
 .kitchen-main { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; flex: 0 0 auto; }
