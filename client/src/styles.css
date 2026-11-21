@@ -241,10 +241,8 @@ button, select { font: inherit; letter-spacing: .06em; }
 .kitchen-head { display: flex; align-items: center; gap: 16px; border-bottom: 1px solid var(--line); padding-bottom: 6px; }
 .kitchen-head h1 { font-family: var(--display); margin: 0; font-size: 1.1rem; letter-spacing: .1em; text-transform: uppercase; color: #fff; }
 .kitchen-dot { width: 10px; height: 10px; border-radius: 50%; background: currentColor; box-shadow: 0 0 8px currentColor; }
-/* Ladda om för hand på pekskärmen: stor träffyta (44 px), liten ikon */
-.kitchen-reload { cursor: pointer; display: grid; place-items: center; width: 44px; height: 44px; margin: -8px 0; padding: 0; border: 1px solid var(--line); border-radius: 2px; background: rgba(31, 209, 255, .06); color: var(--muted); min-height: 0; -webkit-tap-highlight-color: transparent; }
-.kitchen-reload svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.kitchen-reload:active { background: rgba(31, 209, 255, .25); color: #fff; }
+/* Ladda om för hand: tryck på rubriken (osynlig, men med stor träffyta för fingret) */
+.kitchen-title { cursor: pointer; padding: 10px 24px 10px 0; margin: -10px 0; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
 .kitchen-dot.up { color: var(--ok); }
 .kitchen-dot.down { color: var(--bad); }
 .kitchen-main { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; flex: 0 0 auto; }
