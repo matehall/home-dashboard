@@ -14,6 +14,7 @@ const { startTuya, getLastTuya, getDeviceDetails } = require('./tuya');
 const { startElectricity, getLastElectricity } = require('./electricity');
 const { getConsumption } = require('./consumption');
 const { getCost } = require('./cost');
+const { getSoot, setSweptAt } = require('./sootIndicator');
 const { startPriceControl, getControlStatus } = require('./priceControl');
 
 const app = express();
@@ -54,6 +55,21 @@ app.get('/api/consumption', async (_req, res, next) => {
 app.get('/api/cost', async (_req, res, next) => {
   try { res.json(await getCost()); } catch (err) { next(err); }
 });
+app.get('/api/soot', async (_req, res, next) => {
+  try { res.json(await getSoot()); } catch (err) { next(err); }
+});
+// Efter en sotning: curl -X POST -H 'Content-Type: application/json' -d '{"date":"2026-12-01"}' http://<host>:3000/api/soot/swept (utan date: idag)
+app.post('/api/soot/swept', express.json(), async (req, res, next) => {
+  try {
+    const { stockholmDate } = require('./consumption');
+    setSweptAt(req.body?.date ?? stockholmDate(Date.now()));
+    res.json(await getSoot());
+  } catch (err) {
+    if (/datum/.test(err.message)) return res.status(400).json({ error: err.message });
+    return next(err);
+  }
+});
+
 app.get('/api/tuya/devices/:id', async (req, res, next) => {
   try {
     const details = await getDeviceDetails(req.params.id);
