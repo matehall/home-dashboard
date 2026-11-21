@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { evLimitReason } from "./evLimit.js";
 import { fraction, litCount, arcTicks, gaugeMaxKw, TEMP_SCALES, stackPath } from "./gauge.js";
 import { trendOf, TREND_CFG } from "./trend.js";
+import { sootView, SOOT_SEGS } from "./soot.js";
 import { io } from "socket.io-client";
 import { LineChart, Line, BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { angleToIndex } from "./clockMath.js";
@@ -893,10 +894,30 @@ function useTrends(sensors) {
   return trends;
 }
 
+// Sotindikatorn räknas på servern en eller två gånger per dygn; klienten hämtar den vid start och sedan varje timme.
+const SOOT_REFRESH_MS = 60 * 60 * 1000;
+function useSoot() {
+  const [soot, setSoot] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    const load = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/soot`);
+        if (res.ok && alive) setSoot(await res.json());
+      } catch { /* behåll senast kända */ }
+    };
+    load();
+    const id = setInterval(load, SOOT_REFRESH_MS);
+    return () => { alive = false; clearInterval(id); };
+  }, []);
+  return soot;
+}
+
 const TEMP_SENSORS = KITCHEN_TEMPS.map(([sensor]) => sensor);
 
 function TempPanel({ latest }) {
   const trends = useTrends(TEMP_SENSORS);
+  const sv = sootView(useSoot());
   return (
     <div className="card kitchen-temps">
       <span className="meta">Temperaturer</span>
@@ -923,6 +944,16 @@ function TempPanel({ latest }) {
           </div>
         );
       })}
+      <div className={`temp-row soot-row soot-${sv.tone}`} title="Hur många °C varmare röken är än när pannan var ren. Sota vid ungefär +10.">
+        <div className="temp-top">
+          <span className="temp-name">Sot</span>
+          <span className="soot-label">{sv.label}</span>
+          <span className="soot-val">{sv.value ?? "–"}{sv.value !== null && <small> °C</small>}</span>
+        </div>
+        <div className="soot-bar" aria-hidden="true">
+          {Array.from({ length: SOOT_SEGS }, (_, i) => <i key={i} className={i < sv.lit ? `on z-${sv.zones[i]}` : undefined} />)}
+        </div>
+      </div>
     </div>
   );
 }

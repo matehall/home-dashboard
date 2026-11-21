@@ -79,6 +79,11 @@ module.exports = {
     );
   },
 
+  // Rådata för en sensor i tidsordning: [{ ts, value }]. Till exempel röktemperaturen för sotindikatorn.
+  getRawSeries(sensor, fromTs, toTs) {
+    return all('SELECT ts, value FROM readings WHERE sensor = ? AND ts >= ? AND ts < ? ORDER BY ts', [sensor, fromTs, toTs]);
+  },
+
   getPrices(area, fromTs, toTs) {
     return all(
       'SELECT ts_start AS ts, ore_per_kwh AS ore FROM prices WHERE area = ? AND ts_start >= ? AND ts_start < ? ORDER BY ts_start',

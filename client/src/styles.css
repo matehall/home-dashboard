@@ -301,6 +301,21 @@ button, select { font: inherit; letter-spacing: .06em; }
 .temp-bar i.on { background: var(--tc); }
 .temp-sweep { position: absolute; top: 0; bottom: 0; left: 0; width: 18%; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .55), transparent); transform: translateX(-120%); }
 
+/* Sotindikator: en tunn rad under temperaturerna, ett segment per °C över ren panna, färgat efter zon (ok, snart dags, sota) */
+.soot-row { --tc: var(--accent); }
+.soot-row .temp-top { gap: 8px; }
+.soot-label { flex: 1 1 auto; text-align: right; color: var(--muted); font-size: .75rem; letter-spacing: .06em; }
+.soot-val { color: #fff; font-family: var(--display); font-size: 1.3rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.soot-val small { color: var(--muted); font-size: .7rem; }
+.soot-warn .soot-label { color: var(--warn); }
+.soot-bad .soot-label { color: var(--bad); }
+.soot-off .soot-val { color: var(--muted); }
+.soot-bar { display: grid; grid-template-columns: repeat(14, 1fr); gap: 2px; height: 8px; }
+.soot-bar i { background: rgba(95, 176, 204, .16); }
+.soot-bar i.on { background: var(--accent); }
+.soot-bar i.on.z-warn { background: var(--warn); }
+.soot-bar i.on.z-bad { background: var(--bad); }
+
 /* Animationer: bara transform och opacity, få element, och med steps() så att de ger få bildrutor (mätt på Pi 3:
    jämna animationer kostar ~100 % CPU per styck, tickande med 2-13 bildrutor/s nästan ingenting). Undantas från spärren nedan med klassen fx */
 @keyframes gauge-spin { to { transform: rotate(360deg); } }
