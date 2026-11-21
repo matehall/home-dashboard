@@ -905,6 +905,9 @@ function KitchenView({ electricity, connected, ev, latest }) {
         <h1>Hem</h1>
         <HeaderClock seconds={false} />
         <span className={`kitchen-dot ${connected ? "up" : "down"}`} title={connected ? "Ansluten" : "Frånkopplad"} />
+        <button type="button" className="kitchen-reload" aria-label="Ladda om sidan" onClick={() => window.location.reload()}>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.6-5.9M20 4v5h-5" /></svg>
+        </button>
       </header>
       <div className="kitchen-main">
         <ElectricityPanel electricity={electricity} />
