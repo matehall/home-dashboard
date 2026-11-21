@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { evLimitReason } from "./evLimit.js";
+import { fraction, litCount, arcTicks, gaugeMaxKw, TEMP_SCALES, tempTone, stackPath } from "./gauge.js";
 import { io } from "socket.io-client";
 import { LineChart, Line, BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { angleToIndex } from "./clockMath.js";
@@ -544,6 +545,48 @@ function CostBars({ title, series, color }) {
   );
 }
 
+// Dagskostnad som HUD-staplar: varje dag är en stapel av små segment. Lägsta/högsta dag får färg och belopp.
+// Sista stapeln är pågående dag och pulserar svagt. Ingen hover (kiosken saknar mus).
+const DB_W = 360, DB_H = 96, DB_TOP = 16;
+// Tar bort dagar utan data i början, så att grafen fyller bredden och hamnar mitt i panelen.
+function trimLeadingEmpty(series) {
+  const first = series.findIndex((d) => d.kr !== null);
+  return first < 0 ? [] : series.slice(first);
+}
+
+function DayBars({ series, color }) {
+  const ex = markExtremes(series.map((d) => d.kr));
+  const n = series.length;
+  if (!n) return null;
+  const max = Math.max(...series.map((d) => d.kr ?? 0), 0.01);
+  const step = DB_W / n;
+  const w = step * 0.68;
+  const label = (i, c, txt) => {
+    const x = (i + 0.5) * step;
+    const anchor = i < n * 0.2 ? "start" : i > n * 0.8 ? "end" : "middle";
+    const tx = anchor === "start" ? i * step : anchor === "end" ? (i + 1) * step : x;
+    return <text key={txt} x={tx} y={10} textAnchor={anchor} className="cost-extreme" fill={c}>{txt}</text>;
+  };
+  return (
+    <svg className="day-bars" viewBox={`0 0 ${DB_W} ${DB_H + DB_TOP}`} role="img" aria-label="Kostnad per dag, 30 dagar">
+      <g transform={`translate(0 ${DB_TOP})`}>
+        {series.map((d, i) => {
+          const isLast = i === n - 1;
+          const c = ex && i === ex.minIdx ? MIN_COLOR : ex && i === ex.maxIdx ? MAX_COLOR : color;
+          const dim = !ex || i === ex.minIdx || i === ex.maxIdx || isLast ? 1 : 0.55;
+          return (
+            <path key={d.key} d={stackPath(i * step + (step - w) / 2, w, DB_H, 12, d.kr === null ? null : d.kr / max)}
+              fill={c} fillOpacity={dim} className={isLast ? "fx day-now" : undefined} />
+          );
+        })}
+        <line x1="0" x2={DB_W} y1={DB_H + 0.5} y2={DB_H + 0.5} className="day-base" />
+      </g>
+      {ex && label(ex.minIdx, MIN_COLOR, `min ${series[ex.minIdx].kr.toFixed(2).replace(".", ",")}`)}
+      {ex && label(ex.maxIdx, MAX_COLOR, `max ${series[ex.maxIdx].kr.toFixed(2).replace(".", ",")}`)}
+    </svg>
+  );
+}
+
 // Kostnad för bil eller hus (hus = totalt minus bil). kind: "bil" | "hus".
 function CostPanel({ kind, cost, compact = false }) {
   const color = kind === "bil" ? "var(--accent)" : "var(--ok)";
@@ -556,6 +599,16 @@ function CostPanel({ kind, cost, compact = false }) {
   const title = kind === "bil" ? "Elbil" : "Hus (utan bil)";
   if (!cost) return <div className="card cost-panel"><span className="meta">Laddar kostnad…</span></div>;
   const incomplete = cost.today.incomplete || (!compact && cost.month.incomplete);
+  if (compact) {
+    return (
+      <div className="card cost-panel cost-compact" style={{ "--accent": color }}>
+        <span className="meta">Kostnad {title}{incomplete && " (spotpris saknas för vissa kvartar)"}</span>
+        <div className="cost-today"><span className="meta">Idag</span><div className="elpris-now">{kr(pick(cost.today)?.kr ?? null)}</div></div>
+        <DayBars series={trimLeadingEmpty(toSeries(cost.days, dayLabel))} color={color} />
+        <span className="meta cost-foot">Per dag, senaste 30 dagarna</span>
+      </div>
+    );
+  }
   return (
     <div className="card cost-panel" style={{ "--accent": color }}>
       <span className="meta">Kostnad {title}{incomplete && " (spotpris saknas för vissa kvartar)"}</span>
@@ -749,23 +802,52 @@ function HeaderClock({ seconds = true }) {
   return <div className="header-clock"><b>{time}</b><span>{date}</span></div>;
 }
 
-// Köksvyns laddpanel: status, effekt och (härledd) orsak till att effekten är som den är.
+// Mätare: 40 streck i en 240-gradersbåge, tända upp till frac. Ringen runt snurrar när bilen laddar.
+const GAUGE_N = 40;
+const GAUGE_TICKS = arcTicks(GAUGE_N, -120, 120, 72, 90, 100, 100);
+function ArcGauge({ frac, active, tone, children }) {
+  const lit = litCount(frac, GAUGE_N);
+  return (
+    <svg className={`arc-gauge ${tone}`} viewBox="0 0 200 200" aria-hidden="true">
+      <circle cx="100" cy="100" r="97" className={`gauge-ring${active ? " fx gauge-spin" : ""}`} />
+      {GAUGE_TICKS.map((t, i) => (
+        <line key={i} x1={t.x1} y1={t.y1} x2={t.x2} y2={t.y2} className={i < lit ? "g-on" : "g-off"} />
+      ))}
+      {children}
+    </svg>
+  );
+}
+
+// Köksvyns laddpanel: mätare för effekten, status, session, kabel och (härledd) orsak till att effekten är som den är.
 function KitchenEvPanel({ ev }) {
   if (!ev) return <div className="card kitchen-ev"><span className="meta">Ingen laddboxdata än</span></div>;
   const state = CHARGING_STATES[ev.charging_state] ?? `Kod ${ev.charging_state}`;
   const tone = ev.charging_state === 2 ? "charging" : ev.charging_state === 4 ? "error" : "idle";
   const reason = evLimitReason(ev);
+  const maxKw = gaugeMaxKw(ev);
+  const kw = Number(ev.power_kw);
   return (
     <div className={`card kitchen-ev ev-panel ${tone}`}>
       <span className="meta">Elbil laddning</span>
-      <div className="ev-state">
-        <span className="ev-dot" />
-        <span className="ev-status">{state}</span>
+      <div className="kev-body">
+        <div className="kev-gauge">
+          <ArcGauge frac={fraction(kw, 0, maxKw)} active={tone === "charging"} tone={tone}>
+            <text x="100" y="106" textAnchor="middle" className="g-val">{kw.toFixed(1).replace(".", ",")}</text>
+            <text x="100" y="128" textAnchor="middle" className="g-unit">kW av {maxKw.toFixed(1).replace(".", ",")}</text>
+          </ArcGauge>
+        </div>
+        <div className="kev-side">
+          <div className="ev-state kev-state">
+            <span className="ev-dot" />
+            <span className="ev-status">{state}</span>
+          </div>
+          <div className="kev-field"><span className="meta">Session</span><b>{Number(ev.energy_kwh).toFixed(1).replace(".", ",")}<small> kWh</small></b></div>
+          <div className="kev-field"><span className="meta">Kabel</span><b>{yesNo(ev.is_lock, "Låst", "Olåst")}</b></div>
+        </div>
       </div>
-      <div className="kev-power"><b>{Number(ev.power_kw).toFixed(1).replace(".", ",")}</b><small> kW</small></div>
-      <div className="kev-row"><span className="meta">Session</span><b>{Number(ev.energy_kwh).toFixed(1).replace(".", ",")} kWh</b></div>
-      <div className="kev-row"><span className="meta">Kabel</span><b>{yesNo(ev.is_lock, "Låst", "Olåst")}</b></div>
-      <div className="kev-reason" title="Härledd ur laddboxens gränser och uppmätt ström">{reason ? reason.text : "\u00a0"}</div>
+      <div className={`kev-reason${reason ? "" : " none"}`} title="Härledd ur laddboxens gränser och uppmätt ström">
+        {reason ? <><i aria-hidden="true">!</i>{reason.text}</> : "\u00a0"}
+      </div>
     </div>
   );
 }
@@ -775,6 +857,7 @@ const KITCHEN_TEMPS = [
   ["rok_temp", "Rök"],
   ["utetemperatur", "Ute"],
 ];
+const TEMP_SEGS = 24;
 
 function TempPanel({ latest }) {
   return (
@@ -782,11 +865,20 @@ function TempPanel({ latest }) {
       <span className="meta">Temperaturer</span>
       {KITCHEN_TEMPS.map(([sensor, name]) => {
         const item = latest?.[sensor];
-        const v = item && Number.isFinite(Number(item.value)) ? Number(item.value).toFixed(1).replace(".", ",") : "–";
+        const raw = item ? Number(item.value) : NaN;
+        const has = Number.isFinite(raw);
+        const sc = TEMP_SCALES[sensor];
+        const lit = has ? litCount(fraction(raw, sc.min, sc.max), TEMP_SEGS) : 0;
         return (
-          <div key={sensor} className="temp-row">
-            <span className="temp-name">{name}</span>
-            <span className="temp-val">{v}<small> °C</small></span>
+          <div key={sensor} className={`temp-row tone-${has ? tempTone(sensor, raw) : "off"}`}>
+            <div className="temp-top">
+              <span className="temp-name">{name}</span>
+              <span className="temp-val">{has ? raw.toFixed(1).replace(".", ",") : "–"}<small> °C</small></span>
+            </div>
+            <div className="temp-bar" aria-hidden="true">
+              {Array.from({ length: TEMP_SEGS }, (_, i) => <i key={i} className={i < lit ? "on" : undefined} />)}
+              {has && <span className="fx temp-sweep" />}
+            </div>
           </div>
         );
       })}

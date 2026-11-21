@@ -254,22 +254,64 @@ button, select { font: inherit; letter-spacing: .06em; }
 .kitchen-bottom > .card { overflow: hidden; }
 .kitchen .cost-panel .cost-charts { grid-template-columns: 1fr; }
 .kitchen-ev, .kitchen-temps { display: flex; flex-direction: column; gap: 6px; margin-top: 0; }
-.kitchen-ev .ev-state { min-width: 0; }
-.kev-power { font-variant-numeric: tabular-nums; color: color-mix(in srgb, var(--accent) 60%, #fff); line-height: 1; }
-.kev-power b { font-size: 3rem; font-weight: 700; }
-.kev-power small { font-size: 1rem; color: var(--muted); }
-.kev-row { display: flex; justify-content: space-between; align-items: baseline; font-variant-numeric: tabular-nums; }
-.kev-row b { color: #fff; font-size: .95rem; }
-.kev-reason { margin-top: auto; padding-top: 6px; border-top: 1px solid var(--line); font-size: .8rem; color: var(--warn); min-height: 1.3em; }
-.temp-row { display: flex; justify-content: space-between; align-items: baseline; padding: 6px 0; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
-.temp-row:last-child { border-bottom: 0; }
-.temp-name { color: var(--muted); text-transform: uppercase; letter-spacing: .1em; font-size: .8rem; }
-.temp-val { color: #fff; font-size: 2.2rem; font-weight: 700; line-height: 1.1; }
-.temp-val small { color: var(--muted); font-size: .9rem; }
+
+/* Panel 1: centrerad dagskostnad med segmentstaplar */
+.cost-compact { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 4px; }
+.cost-today .elpris-now { font-size: 2.3rem; line-height: 1.1; }
+.day-bars { width: 100%; flex: 1 1 auto; min-height: 0; max-height: 150px; display: block; }
+.day-base { stroke: var(--line-strong); stroke-width: 1; }
+.cost-foot { letter-spacing: .12em; text-transform: uppercase; font-size: .62rem; }
+
+/* Panel 2: mätare för laddeffekt */
+.kev-body { display: flex; align-items: center; gap: 10px; flex: 1 1 auto; min-height: 0; }
+.kev-gauge { flex: 0 0 auto; }
+.arc-gauge { width: 165px; height: 165px; display: block; --g: var(--accent); }
+.arc-gauge.idle { --g: #7b8794; }
+.arc-gauge.error { --g: var(--bad); }
+.arc-gauge line { stroke-width: 3; stroke-linecap: butt; }
+.arc-gauge .g-on { stroke: var(--g); }
+.arc-gauge .g-off { stroke: rgba(95, 176, 204, .18); }
+.arc-gauge .gauge-ring { fill: none; stroke: var(--g); stroke-opacity: .5; stroke-width: 1; stroke-dasharray: 3 9; }
+.arc-gauge .g-val { font-family: var(--display); font-weight: 700; font-size: 38px; fill: #fff; font-variant-numeric: tabular-nums; }
+.arc-gauge .g-unit { font-family: var(--display); font-size: 10px; letter-spacing: .12em; fill: var(--muted); text-transform: uppercase; }
+.kev-side { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.kev-state { align-self: flex-start; }
+.kev-state .ev-status { font-size: .85rem; }
+.kev-field { display: flex; flex-direction: column; align-items: center; padding: 4px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: linear-gradient(90deg, transparent, rgba(31, 209, 255, .07), transparent); }
+.kev-field b { color: #fff; font-family: var(--display); font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+.kev-field small { color: var(--muted); font-size: .65rem; }
+.kev-reason { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 1.6em; font-size: .78rem; color: var(--warn); }
+.kev-reason i { display: inline-grid; place-items: center; width: 16px; height: 16px; border: 1.5px solid var(--warn); border-radius: 50%; font-style: normal; font-weight: 800; font-size: .7rem; flex: none; }
+
+/* Panel 3: temperaturer med segmenterad skala */
+.kitchen-temps { justify-content: space-around; }
+.temp-row { --tc: var(--accent); display: flex; flex-direction: column; gap: 4px; }
+.temp-row.tone-warn { --tc: var(--warn); }
+.temp-row.tone-bad { --tc: var(--bad); }
+.temp-row.tone-off { --tc: #4b5b66; }
+.temp-top { display: flex; justify-content: space-between; align-items: baseline; font-variant-numeric: tabular-nums; }
+.temp-name { color: var(--muted); font-family: var(--display); text-transform: uppercase; letter-spacing: .14em; font-size: .75rem; }
+.temp-val { color: #fff; font-family: var(--display); font-size: 2rem; font-weight: 700; line-height: 1.1; }
+.temp-val small { color: var(--muted); font-size: .8rem; }
+.temp-bar { position: relative; display: grid; grid-template-columns: repeat(24, 1fr); gap: 2px; height: 12px; overflow: hidden; }
+.temp-bar i { background: rgba(95, 176, 204, .16); }
+.temp-bar i.on { background: var(--tc); }
+.temp-sweep { position: absolute; top: 0; bottom: 0; left: 0; width: 18%; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .55), transparent); transform: translateX(-120%); }
+
+/* Animationer (bara transform och opacity, få element): undantas från spärren nedan med klassen fx */
+@keyframes gauge-spin { to { transform: rotate(360deg); } }
+@keyframes temp-sweep { 0%, 70% { transform: translateX(-120%); } 100% { transform: translateX(660%); } }
+@keyframes day-now { 50% { opacity: .45; } }
+.fx.gauge-spin { transform-box: fill-box; transform-origin: center; animation: gauge-spin 24s linear infinite; }
+.fx.temp-sweep { animation: temp-sweep 5s ease-in-out infinite; }
+.fx.day-now { animation: day-now 2.4s ease-in-out infinite; }
 
 /* Köksvyn körs på en Pi 3: inga filter, glöd eller övergångar som tvingar dyr omritning. */
 body:has(.kitchen) { background-attachment: scroll; }
-.kitchen *, .kitchen *::before, .kitchen *::after { transition: none !important; animation: none !important; text-shadow: none !important; }
+.kitchen *:not(.fx), .kitchen *::before, .kitchen *::after { animation: none !important; }
+.kitchen *, .kitchen *::before, .kitchen *::after { text-shadow: none !important; }
+.kitchen *, .kitchen *::before, .kitchen *::after { transition: none !important; }
+@media (prefers-reduced-motion: reduce) { .fx { animation: none !important; } }
 .kitchen .clk-core, .kitchen .clk-seg.now, .kitchen .clk-pointer, .kitchen .clk-price, .kitchen .clk-seg:hover, .kitchen .clk-seg.hover { filter: none; }
 .kitchen .card, .kitchen .kitchen-dot { box-shadow: none; }
 
