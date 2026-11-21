@@ -260,22 +260,20 @@ button, select { font: inherit; letter-spacing: .06em; }
 /* Panel 1: centrerad dagskostnad med segmentstaplar */
 .cost-compact { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 4px; }
 .cost-today .elpris-now { font-size: 2.3rem; line-height: 1.1; }
-.day-bars { position: relative; width: 100%; aspect-ratio: 360 / 112; flex: 1 1 auto; min-height: 0; max-height: 150px; }
-.day-bars > svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.day-bars { width: 100%; flex: 1 1 auto; min-height: 0; max-height: 150px; display: block; }
 .day-base { stroke: var(--line-strong); stroke-width: 1; }
 .cost-foot { letter-spacing: .12em; text-transform: uppercase; font-size: .62rem; }
 
 /* Panel 2: mätare för laddeffekt */
 .kev-body { display: flex; align-items: center; gap: 10px; flex: 1 1 auto; min-height: 0; }
 .kev-gauge { flex: 0 0 auto; }
-.arc-gauge-wrap { position: relative; width: 165px; height: 165px; --g: var(--accent); }
-.arc-gauge-wrap.idle { --g: #7b8794; }
-.arc-gauge-wrap.error { --g: var(--bad); }
-.arc-gauge-wrap > svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-.arc-ring circle { fill: none; stroke: var(--g); stroke-opacity: .5; stroke-width: 1; stroke-dasharray: 3 9; }
+.arc-gauge { width: 165px; height: 165px; display: block; --g: var(--accent); }
+.arc-gauge.idle { --g: #7b8794; }
+.arc-gauge.error { --g: var(--bad); }
 .arc-gauge line { stroke-width: 3; stroke-linecap: butt; }
 .arc-gauge .g-on { stroke: var(--g); }
 .arc-gauge .g-off { stroke: rgba(95, 176, 204, .18); }
+.arc-gauge .gauge-ring { fill: none; stroke: var(--g); stroke-opacity: .5; stroke-width: 1; stroke-dasharray: 3 9; }
 .arc-gauge .g-val { font-family: var(--display); font-weight: 700; font-size: 38px; fill: #fff; font-variant-numeric: tabular-nums; }
 .arc-gauge .g-unit { font-family: var(--display); font-size: 10px; letter-spacing: .12em; fill: var(--muted); text-transform: uppercase; }
 .kev-side { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
@@ -303,13 +301,14 @@ button, select { font: inherit; letter-spacing: .06em; }
 .temp-bar i.on { background: var(--tc); }
 .temp-sweep { position: absolute; top: 0; bottom: 0; left: 0; width: 18%; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .55), transparent); transform: translateX(-120%); }
 
-/* Animationer (bara transform och opacity, få element, alltid på ett helt <svg>- eller HTML-element, aldrig inuti en SVG): undantas från spärren nedan med klassen fx */
+/* Animationer: bara transform och opacity, få element, och med steps() så att de ger få bildrutor (mätt på Pi 3:
+   jämna animationer kostar ~100 % CPU per styck, tickande med 2-13 bildrutor/s nästan ingenting). Undantas från spärren nedan med klassen fx */
 @keyframes gauge-spin { to { transform: rotate(360deg); } }
 @keyframes temp-sweep { 0%, 70% { transform: translateX(-120%); } 100% { transform: translateX(660%); } }
 @keyframes day-now { 50% { opacity: .45; } }
-.fx.gauge-spin { animation: gauge-spin 24s linear infinite; will-change: transform; }
-.fx.temp-sweep { animation: temp-sweep 5s ease-in-out infinite; }
-.fx.day-now { animation: day-now 2.4s ease-in-out infinite; will-change: opacity; }
+.fx.gauge-spin { transform-box: fill-box; transform-origin: center; animation: gauge-spin 24s steps(48, end) infinite; }
+.fx.temp-sweep { animation: temp-sweep 5s steps(20, end) infinite; }
+.fx.day-now { animation: day-now 2.4s steps(1, end) infinite; }
 
 /* Köksvyn körs på en Pi 3: inga filter, glöd eller övergångar som tvingar dyr omritning. */
 body:has(.kitchen) { background-attachment: scroll; }
